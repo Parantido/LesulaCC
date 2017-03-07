@@ -1,0 +1,237 @@
+package org.techfusion.model.proxies {
+
+	// Import
+	import flash.data.SQLConnection;
+	import flash.data.SQLMode;
+	import flash.data.SQLResult;
+	import flash.data.SQLStatement;
+	import flash.events.SQLErrorEvent;
+	import flash.events.SQLEvent;
+	import flash.filesystem.File;
+	
+	import org.puremvc.as3.interfaces.IProxy;
+	import org.puremvc.as3.patterns.proxy.Proxy;
+	
+	public class DatabaseProxy extends Proxy implements IProxy {
+		
+		// Internal PureMVC Defines
+		public static const NAME:String = "DatabaseProxy";
+		
+		[Bindable]
+		public var dbConn:SQLConnection = new SQLConnection();
+		
+		[Bindable]
+		private var dbStmt:SQLStatement = new SQLStatement();
+		
+		/**
+		 * Database Proxy Constructor
+		 */
+		public function DatabaseProxy(data:Object = null) {
+			super(NAME, data);
+			
+			// Initialize Database
+			databaseInitialization();
+		}
+		
+		/**
+		 * Database Initializator
+		 */
+		private function databaseInitialization():void {
+			// Retrieve Application Pathname Object
+			var dir:File = File.applicationDirectory;
+			
+			// Retrieve Database File Object
+			var db:File = dir.resolvePath("lesulacc.db");
+			
+			// Open Database SQLConnection.
+			if(db.exists) {
+				trace(NAME + " ==> Database already exists: opening in update mode ... ");
+				dbConn.openAsync(db, SQLMode.UPDATE);
+			} else {
+				trace(NAME + " ==> Database doesn't exists: opening in update mode ... ");
+				dbConn.openAsync(db, SQLMode.CREATE);
+			}
+			
+			// Set Up event listener
+			dbConn.addEventListener(SQLEvent.OPEN, dbLoaded);
+			dbConn.addEventListener(SQLEvent.RESULT, sqlResult);
+			dbConn.addEventListener(SQLErrorEvent.ERROR, sqlError);
+			
+			// Debug
+			trace(NAME + " ==> Database initialization (" + dir.resolvePath("lesulacc.db").nativePath + ") ...");
+		}
+
+		/**
+		 * Handle Database Load Actions
+		 */
+		private function dbLoaded(event:SQLEvent):void {
+			// Retrive Database conneciton
+			dbStmt.sqlConnection = dbConn;
+			
+			// Attach Event Listener
+			dbStmt.addEventListener(SQLEvent.RESULT, dbLoadComplete);
+			dbStmt.addEventListener(SQLErrorEvent.ERROR, dbLoadError);
+			
+			// Create Table if not exists
+			dbStmt.text = "CREATE TABLE IF NOT EXISTS credentials_t (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, passwd TEXT, server TEXT, UNIQUE(server));";
+			
+			// Execute Query
+			dbStmt.execute();
+			
+			// Debug
+			trace(NAME + " ==> Database table creation ...");
+		}
+		
+		/**
+		 * Notify Database Initialization Error
+		 */
+		protected function dbLoadError(event:SQLErrorEvent):void {
+			// Remove Event Listener
+			dbStmt.removeEventListener(SQLEvent.RESULT, dbLoadComplete);
+			dbStmt.removeEventListener(SQLErrorEvent.ERROR, dbLoadError);
+			
+			// Debug
+			trace(NAME + " ==> Initialization Error: " + event.text);
+		}
+		
+		/**
+		 * Notify Database Initialization Complete
+		 */
+		private function dbLoadComplete(event:SQLEvent):void {
+			// Debug
+			trace(NAME + " ==> Successful Initialized!!!");
+			
+			// Remove Event Listener
+			dbStmt.removeEventListener(SQLEvent.RESULT, dbLoadComplete);
+			dbStmt.removeEventListener(SQLErrorEvent.ERROR, dbLoadError);
+			
+			// Dispatch Db Initialization Complete Event
+			sendNotification(ApplicationFacade.DB_INITIALIZED);
+		}
+		
+		/**
+		 * Handle SQL Error Connection -- Only for Debugging
+		 */
+		private function sqlError(err:SQLErrorEvent):void{
+			// Trace Error
+			trace(NAME + " ==> SQL Error: " + err.error.message);
+			// Delete Event Listeners
+			dbStmt.removeEventListener(SQLEvent.RESULT, sqlResult);
+			dbStmt.removeEventListener(SQLErrorEvent.ERROR, sqlError);
+		}
+		
+		/**
+		 * Handle Async SQL result Actions
+		 */
+		private function sqlResult(res:SQLEvent):Boolean {
+			// Retrieve Result
+			var sqlRes:SQLResult = dbStmt.getResult();
+			
+			// Exit if no result returned
+			if(!sqlRes.data) return false;
+			
+			// Retrieve Statement Data
+			var data:Array = sqlRes.data;
+			
+			// Cycle through data and do something
+			for(var i:int = 0; i <= (data.length - 1); i++) {
+				// Dispatch a row at time
+				sendNotification(ApplicationFacade.DB_QUERYRETURN, data[i]);
+			}
+			
+			// Delete Event Listeners
+			dbStmt.removeEventListener(SQLEvent.RESULT, sqlResult);
+			dbStmt.removeEventListener(SQLErrorEvent.ERROR, sqlError);
+			
+			// Return ok
+			return true;
+		}
+		
+		/**
+		 * Check If Database is Connected -- Reconnect on failure
+		 */
+		private function isDbConnected(conDb:SQLConnection):SQLConnection{
+			// Retrieve Database Path Location
+			var dir:File = File.applicationDirectory;
+			var db:File = dir.resolvePath("lesulacc.db");
+			
+			// If not connected retry connection
+			if(!conDb.connected) {
+				conDb.open(db);
+				dbConn.addEventListener(SQLEvent.OPEN, dbLoaded);
+				dbConn.addEventListener(SQLErrorEvent.ERROR, sqlError);
+				dbConn.addEventListener(SQLEvent.RESULT, sqlResult);
+			}
+			
+			// Return Database Connection
+			return conDb;
+		}
+		
+		/**
+		 * Store credentials
+		 */
+		public function storeCredentials(username:String, password:String, server:String):void {
+			// Debug
+			trace(NAME + " ==> Storing Credentials: " + username + " - " + password + " - " + server);
+			
+			// Check if database is connected
+			dbStmt.sqlConnection = this.isDbConnected(dbConn);
+			
+			// Add Event Listener
+			dbStmt.addEventListener(SQLEvent.RESULT, sqlResult);
+			dbStmt.addEventListener(SQLErrorEvent.ERROR, sqlError);
+			
+			// Check if Statement is Already Executing
+			if(!dbStmt.executing) {
+				// Insert or replace Contacts
+				dbStmt.text = "INSERT OR REPLACE INTO credentials_t (username, passwd, server) VALUES('" + username + "', '" + password + "', '" + server + "');";
+				dbStmt.execute();
+			}
+		}
+		
+		/**
+		 * Store credentials
+		 */
+		public function removeCredentials(username:String, password:String, server:String):void {
+			// Debug
+			trace(NAME + " ==> Removing Credentials: " + username + " - " + password + " - " + server);
+			
+			// Check if database is connected
+			dbStmt.sqlConnection = this.isDbConnected(dbConn);
+			
+			// Add Event Listener
+			dbStmt.addEventListener(SQLEvent.RESULT, sqlResult);
+			dbStmt.addEventListener(SQLErrorEvent.ERROR, sqlError);
+			
+			// Check if Statement is Already Executing
+			if(!dbStmt.executing) {
+				// Insert or replace Contacts
+				dbStmt.text = "DELETE FROM credentials_t WHERE username='" + username + "' AND passwd='" + password + "' AND server='" + server + "'";
+				
+				// Execute Query
+				dbStmt.execute();
+			}
+		}
+		
+		/**
+		 * Check if credentials exists
+		 */
+		public function loadCredentials():void {
+			// Debug
+			trace(NAME + " ==> Loading Credentials!");
+			
+			// Check if database is connected
+			dbStmt.sqlConnection = this.isDbConnected(dbConn);
+			
+			// Query
+			dbStmt.text = "SELECT * FROM credentials_t";
+			
+			// Add Event Listener
+			dbStmt.addEventListener(SQLEvent.RESULT, sqlResult);
+			dbStmt.addEventListener(SQLErrorEvent.ERROR, sqlError);
+			
+			// Execute Query
+			dbStmt.execute();
+		}
+	}
+}

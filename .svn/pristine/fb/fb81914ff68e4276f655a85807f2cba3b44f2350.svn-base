@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:ui="http://www.kapit.fr/flex4/ui"
+		xmlns:fx="http://ns.adobe.com/mxml/2009"
+		xmlns:mx="library://ns.adobe.com/flex/mx"
+	    xmlns:s="library://ns.adobe.com/flex/spark"
+	    xmlns:view="org.techfusion.view.components.*"
+		actionBarVisible="false" destructionPolicy="never" 
+		viewActivate="{ viewActivate(); }" viewDeactivate="{ viewDeactivate(); }">
+	
+	<s:layout>
+		<s:BasicLayout/>
+	</s:layout>
+	
+	<s:states>
+		<s:State name="Base"/>
+	</s:states>
+	
+	<s:transitions>
+		<s:Transition fromState="*" toState="*">
+			<s:Fade target="{baseMainContainer}" duration="700" alphaFrom="0.0" alphaTo="1.0" />
+		</s:Transition>
+	</s:transitions>
+	
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import org.puremvc.as3.patterns.facade.Facade;
+			import org.techfusion.view.mediators.QueuesViewMediator;
+			
+			// Retrieve Facade Instance
+			private var facade:Facade = ApplicationFacade.getInstance();
+			
+			/**
+			 * On View Activate Actions
+			 */
+			private function viewActivate(): void {
+				// Registering Mediators
+				if(!facade.hasMediator(QueuesViewMediator.NAME)) {
+					facade.registerMediator(new QueuesViewMediator(this));
+				}
+				
+				// Dispatch Initialization Events
+				dispatchEvent(new Event(ApplicationFacade.CREATE));
+			}
+			
+			/**
+			 * On View DeActivate Actions
+			 */
+			private function viewDeactivate(): void {
+				// UnRegistering Mediators -- Do not unregister mediator
+				// if you would to keep trace although you switch between
+				// tabs!!!
+				// if(facade.hasMediator(QueuesViewMediator.NAME)) {
+				//	facade.removeMediator(QueuesViewMediator.NAME);
+				//}
+				
+				// Dispatch Initialization Events
+				dispatchEvent(new Event(ApplicationFacade.DESTROY));
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<s:BorderContainer id="baseMainContainer" width="100%" height="100%" cornerRadius="0">
+		<s:SplitViewNavigator id="mainNavigator" width="100%" height="100%" >
+			<s:ViewNavigator  id="ltNav" width="35%" height="100%" firstView="org.techfusion.view.components.LeftQueuesView" />
+			<s:ViewNavigator  id="rtNav" width="65%" height="100%" firstView="org.techfusion.view.components.RightQueuesView"/>
+		</s:SplitViewNavigator>
+	</s:BorderContainer>
+	
+</s:View>

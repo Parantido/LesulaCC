@@ -1,0 +1,276 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:BorderContainer xmlns:fx="http://ns.adobe.com/mxml/2009"
+				   xmlns:mx="library://ns.adobe.com/flex/mx"
+				   xmlns:s="library://ns.adobe.com/flex/spark"
+				   backgroundColor="0x000000" backgroundAlpha="0.5"
+				   width="90%" height="50%" currentState="lowercase"
+				   xmlns:components="org.virtualkeyboard.components.*"
+				   borderVisible="true" borderColor="0xCCCCCC" borderWeight="1" cornerRadius="10">
+	
+    <fx:Metadata>
+        [Event(name="KeyPressed", type="org.virtualkeyboard.events.VirtualKeyboardEvent")]
+    </fx:Metadata>
+    
+    <fx:Script>
+        <![CDATA[
+			import spark.events.TextOperationEvent;
+			
+			import org.virtualkeyboard.events.VirtualKeyboardEvent;
+			
+			// Attached Text Component
+			private var _attachedTextComponent:Object = null;
+			
+			// Local Key Color
+			[Bindable]
+			private var keycolor:uint = 0xFFFFFF;
+			
+			public function set keyColor(color:uint):void {
+				keycolor = color;
+			}
+			
+			public function get keyColor():uint {
+				return keycolor;
+			}
+			
+			/**
+			 * Attach text component to write to
+			 */
+			public function attachComponent(component:Object):void {
+				if(component && (component.hasOwnProperty("text") && component.hasOwnProperty("selectionActivePosition"))) {
+					_attachedTextComponent = component;
+					this.addEventListener(VirtualKeyboardEvent.KEY_CLICKED, handleKeyPress);
+					this.visible = true;
+				} else {
+					throw new Error("VirtualKeyboard --> Invalid Text Based Component Attached");
+				}
+			}
+			
+			/**
+			 * Attach text component to write to
+			 */
+			public function detachComponent():void {
+				_attachedTextComponent = null;
+				this.removeEventListener(VirtualKeyboardEvent.KEY_CLICKED, handleKeyPress);
+				this.visible = false;
+			}
+			
+			/**
+			 * Handle Key Press Event
+			 */
+			protected function handleKeyPress(evt:VirtualKeyboardEvent):void {
+				if(_attachedTextComponent != null && this.visible) {
+					// Retrieve Caret Position
+					var caretPosition:int = _attachedTextComponent.selectionActivePosition;
+					
+					// Handle Caret Position
+					if(caretPosition <= 0) 
+						caretPosition = 1;
+					else if(_attachedTextComponent.selectionActivePosition < _attachedTextComponent.text.length)
+						caretPosition = _attachedTextComponent.selectionActivePosition;
+					else
+						caretPosition = _attachedTextComponent.text.length;
+					
+					// Handle Special Keys
+					switch(evt.keyPressed) {
+						case "Space":
+							// Handle Space
+							caretPosition += 1;
+							_attachedTextComponent.text = insertCharAt(
+								String(_attachedTextComponent.text), String(" "),
+								int(_attachedTextComponent.selectionActivePosition));
+							break;
+						case "Del":
+							caretPosition -= 1;
+							handleDelButton();
+							break;
+						case "Shift":
+							handleShiftButton();
+							break;
+						case "Done":
+							handleEnterButton();
+							break;
+						default:
+							// Default action: insert character at requested position
+							caretPosition += 1;
+							_attachedTextComponent.text = insertCharAt(
+								String(_attachedTextComponent.text), String(evt.keyPressed),
+								int(_attachedTextComponent.selectionActivePosition));
+							break;
+					}
+					
+					try {
+						// Set caret to the end
+						_attachedTextComponent.selectRange(caretPosition, caretPosition);
+						_attachedTextComponent.dispatchEvent(new TextOperationEvent(TextOperationEvent.CHANGE));
+					} catch(e:Error) {
+						trace("VirtualKeyboard --> Error on placing text cursor: " + e.message);
+					}
+				}
+			}
+			
+			/**
+			 * Handle uppercase/lowercase Character
+			 */
+            protected function handleShiftButton():void {
+                if (this.currentState == "lowercase") {
+                    this.currentState = "uppercase";
+                } else {
+                    this.currentState = "lowercase";
+                }
+            }
+			
+			/**
+			 * Handle Delete Button
+			 */
+			protected function handleDelButton():void {
+				// Retrieve Caret Position
+				var caretPosition:int = _attachedTextComponent.selectionActivePosition;				
+				if(_attachedTextComponent.selectionActivePosition < _attachedTextComponent.text.length)
+					caretPosition = _attachedTextComponent.selectionActivePosition;
+				else
+					caretPosition = _attachedTextComponent.text.length;
+				// Do nothing on first caret position
+				if(_attachedTextComponent.selectionActivePosition <= 0) return;
+				// Delete a character of string
+				if(_attachedTextComponent.selectionActivePosition < _attachedTextComponent.text.length) {
+					caretPosition -= 1;
+					_attachedTextComponent.text = deleteCharAt(
+						_attachedTextComponent.text, _attachedTextComponent.selectionActivePosition
+					);
+					// Delete a character at the end of a string
+				} else {
+					_attachedTextComponent.text = String(_attachedTextComponent.text).slice(0, -1);
+				}
+				// Set caret position
+				_attachedTextComponent.selectRange(caretPosition, caretPosition);
+			}
+			
+			/**
+			 * Handle Enter Button
+			 */
+			protected function handleEnterButton():void {
+				// Detach keyboard from component on Done
+				this.detachComponent();
+			}
+            
+			/**
+			 * Insert a Character in a string at defined position
+			 */
+			protected function insertCharAt(str:String, char:String, index:int):String {
+				return str.substr(0, index) + char + str.substr(index, str.length);
+			}
+			
+			protected function deleteCharAt(str:String, index:int):String {
+				return str.substr(0, index - 1) + str.substr(index, str.length);
+			}
+			
+		]]>
+    </fx:Script>
+    
+    <s:states>
+        <s:State name="lowercase"/>
+        <s:State name="uppercase"/>
+    </s:states>
+	
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	
+	<!-- Keys Layout -->
+	<s:layout>
+		<s:VerticalLayout horizontalAlign="center" verticalAlign="middle"
+						  paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5"/>
+	</s:layout>
+	
+	<!-- 1st Row -->
+	<s:HGroup width="100%" horizontalAlign="center" verticalAlign="middle" height="20%">
+		
+		<components:VirtualKey id="btnTilde" keyText="`" keyText.uppercase="~" width="6%" height="100%"/>
+		<components:VirtualKey id="btn1" keyText="1" keyText.uppercase="!" width="6%" height="100%"/>
+		<components:VirtualKey id="btn2" keyText="2" keyText.uppercase="@" width="6%" height="100%"/>
+		<components:VirtualKey id="btn3" keyText="3" keyText.uppercase="#" width="6%" height="100%"/>
+		<components:VirtualKey id="btn4" keyText="4" keyText.uppercase="$" width="6%" height="100%"/>
+		<components:VirtualKey id="btn5" keyText="5" keyText.uppercase="%" width="6%" height="100%"/>
+		<components:VirtualKey id="btn6" keyText="6" keyText.uppercase="^" width="6%" height="100%"/>
+		<components:VirtualKey id="btn7" keyText="7" keyText.uppercase="&amp;" width="6%" height="100%"/>
+		<components:VirtualKey id="btn8" keyText="8" keyText.uppercase="*" width="6%" height="100%"/>
+		<components:VirtualKey id="btn9" keyText="9" keyText.uppercase="(" width="6%" height="100%"/>
+		<components:VirtualKey id="btn0" keyText="0" keyText.uppercase=")" width="6%" height="100%"/>
+		<components:VirtualKey id="btnMinus" keyText="-" keyText.uppercase="_" width="6%" height="100%"/>
+		<components:VirtualKey id="btnEquals" keyText="=" keyText.uppercase="+" width="6%" height="100%"/>
+		
+		<components:VirtualKey id="btnDelete" keyText="Del" width="6%" height="100%" isImage="true"
+							   imageSource="@Embed('../images/backspace.png')"/>
+		
+	</s:HGroup>
+	
+	<!-- 2nd Row -->
+	<s:HGroup width="100%" horizontalAlign="center" verticalAlign="middle" height="20%">
+		
+		<components:VirtualKey id="btnQ" keyText="q" keyText.uppercase="Q" width="6%" height="100%"/>
+		<components:VirtualKey id="btnW" keyText="w" keyText.uppercase="W" width="6%" height="100%"/>
+		<components:VirtualKey id="btnE" keyText="e" keyText.uppercase="E" width="6%" height="100%"/>
+		<components:VirtualKey id="btnR" keyText="r" keyText.uppercase="T" width="6%" height="100%"/>
+		<components:VirtualKey id="btnT" keyText="t" keyText.uppercase="Y" width="6%" height="100%"/>
+		<components:VirtualKey id="btnY" keyText="y" keyText.uppercase="U" width="6%" height="100%"/>
+		<components:VirtualKey id="btnU" keyText="u" keyText.uppercase="I" width="6%" height="100%"/>
+		<components:VirtualKey id="btnI" keyText="i" keyText.uppercase="O" width="6%" height="100%"/>
+		<components:VirtualKey id="btnO" keyText="o" keyText.uppercase="P" width="6%" height="100%"/>
+		<components:VirtualKey id="btnP" keyText="p" keyText.uppercase="(" width="6%" height="100%"/>
+		<components:VirtualKey id="btnLeftBracket" keyText="[" keyText.uppercase="{" width="6%" height="100%"/>
+		<components:VirtualKey id="btnRightBracket" keyText="]" keyText.uppercase="}" width="6%" height="100%"/>
+		<components:VirtualKey id="btnBackSlash" keyText="\" keyText.uppercase="|" width="6%" height="100%"/>
+		
+	</s:HGroup>
+	
+	<!-- 3rd Row -->
+	<s:HGroup width="100%" horizontalAlign="center" verticalAlign="middle" height="20%">
+		
+		<components:VirtualKey id="btnA" keyText="a" keyText.uppercase="A" width="6%" height="100%"/>
+		<components:VirtualKey id="btnS" keyText="s" keyText.uppercase="S" width="6%" height="100%"/>
+		<components:VirtualKey id="btnD" keyText="d" keyText.uppercase="D" width="6%" height="100%"/>
+		<components:VirtualKey id="btnF" keyText="f" keyText.uppercase="F" width="6%" height="100%"/>
+		<components:VirtualKey id="btnG" keyText="g" keyText.uppercase="G" width="6%" height="100%"/>
+		<components:VirtualKey id="btnH" keyText="h" keyText.uppercase="H" width="6%" height="100%"/>
+		<components:VirtualKey id="btnJ" keyText="j" keyText.uppercase="J" width="6%" height="100%"/>
+		<components:VirtualKey id="btnK" keyText="k" keyText.uppercase="K" width="6%" height="100%"/>
+		<components:VirtualKey id="btnL" keyText="l" keyText.uppercase="L" width="6%" height="100%"/>
+		<components:VirtualKey id="btnSemiColon" keyText=";" keyText.uppercase=":" width="6%" height="100%"/>
+		<components:VirtualKey id="btnQuote" keyText="'" keyText.uppercase="&quot;" width="6%" height="100%"/>
+		
+		<components:VirtualKey id="btnEnter" keyText="Done" width="6%" height="100%" isImage="true"
+							   imageSource="@Embed('../images/enter.png')"/>
+		
+	</s:HGroup>
+	
+	<!-- 4th Row -->
+	<s:HGroup width="100%" horizontalAlign="center" verticalAlign="middle" height="20%">
+		
+		<components:VirtualKey id="btnLeftShift" width="6%" height="100%" underLineColor.uppercase="0x4169E1"
+							   isImage="true" imageSource="@Embed('../images/shift.png')" keyText="Shift"/>
+
+		<components:VirtualKey id="btnZ" keyText="z" keyText.uppercase="Z" width="6%" height="100%"/>
+		<components:VirtualKey id="btnX" keyText="x" keyText.uppercase="X" width="6%" height="100%"/>
+		<components:VirtualKey id="btnC" keyText="c" keyText.uppercase="C" width="6%" height="100%"/>
+		<components:VirtualKey id="btnV" keyText="v" keyText.uppercase="V" width="6%" height="100%"/>
+		<components:VirtualKey id="btnB" keyText="b" keyText.uppercase="B" width="6%" height="100%"/>
+		<components:VirtualKey id="btnN" keyText="n" keyText.uppercase="N" width="6%" height="100%"/>
+		<components:VirtualKey id="btnM" keyText="m" keyText.uppercase="M" width="6%" height="100%"/>
+		<components:VirtualKey id="btnComma" keyText="," keyText.uppercase="&lt;" width="6%" height="100%"/>
+		<components:VirtualKey id="btnStop" keyText="." keyText.uppercase="&gt;" width="6%" height="100%"/>
+		<components:VirtualKey id="btnFwdSlash" keyText="/" keyText.uppercase="?" width="6%" height="100%"/>
+		
+		<components:VirtualKey id="btnRightShift" width="6%" height="100%" underLineColor.uppercase="0x4169E1"
+							   isImage="true" imageSource="@Embed('../images/shift.png')" keyText="Shift"/>
+		
+	</s:HGroup>
+	
+	
+	<!-- 5th Row -->
+	<s:HGroup width="100%" horizontalAlign="center" verticalAlign="middle" height="20%">
+		
+		<components:VirtualKey id="btnSpace" keyText="Space" width="80%" height="100%"/>
+		
+	</s:HGroup>
+	
+</s:BorderContainer>

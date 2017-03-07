@@ -1,0 +1,36 @@
+package org.techfusion.events {
+	
+	// Import default mx Classes
+	import flash.events.Event;
+	
+	import org.puremvc.as3.interfaces.INotification;
+
+	public class AsteriskEvent extends Event {
+		
+		public static const GET_CHAN_STATUS:String	= "asterisk_getchanstatus";
+		public static const GETQUEUES:String		= "asterisk_getqueues";
+		public static const GETPEERS:String			= "asterisk_getpeers";
+		public static const HANGUP:String			= "asterisk_hangup";
+		public static const DOCONF:String			= "asterisk_doconf";
+		public static const ASTEVENT:String			= "asterisk_event";
+		public static const PARK:String				= "asterisk_park";
+		
+		private var commandData:Object;
+		
+		public function AsteriskEvent(type:String, data:Object=null) {
+			// Super Received Values
+			super(type, true, cancelable);
+			
+			// Retrieve Event
+			this.commandData = data;
+		}
+		
+		public function getCommandData():Object {
+			return commandData;
+		}
+		
+		public override function clone():Event {
+			return new AsteriskEvent(type, commandData);
+		}
+	}
+}

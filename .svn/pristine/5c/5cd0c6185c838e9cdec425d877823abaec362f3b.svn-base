@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View backgroundAlpha="0"
+		xmlns:fx="http://ns.adobe.com/mxml/2009"
+		xmlns:s="library://ns.adobe.com/flex/spark"	
+		actionBarVisible="false" overlayControls="false"
+		skinClass="assets.skins.backgroundedView" contentBackgroundAlpha="0"
+		viewActivate="{ viewActivate(); }" viewDeactivate="{ viewDeactivate(); }">
+	
+	
+	<s:states>
+		<s:State name="AlertBox"/>
+		<s:State name="Controls"/>
+	</s:states>
+	
+	<fx:Script>
+		<![CDATA[
+			import com.codealchemy.ane.admobane.AdMobEvent;
+			import com.codealchemy.ane.admobane.AdMobManager;
+			
+			// AdMob Engine
+			private var adMob:AdMobManager	= null;
+			
+			// Timer Engine
+			private var timer:Timer = null;
+			
+			//*******************************************
+			//*
+			//*   PUBLIC Methods
+			//*
+			//*******************************************
+			
+			/**
+			 * View Constructor
+			 */
+			public function viewActivate():void {
+				// Debug
+				trace("Initializing Ad Manager (" + Capabilities.os + ") ...");
+				
+				// Initialize Ad Mob Data Structure
+				initializeAdMob();
+			}
+			
+			/**
+			 * View Destructor
+			 */
+			public function viewDeactivate():void {
+				// Purge Ad Mob Data Structure
+				cleanAdMob();
+			}
+			
+			//*******************************************
+			//*
+			//*   PRIVATE Methods
+			//*
+			//*******************************************
+			
+			/**
+			 * Initialize Ad Mob Data structure and Show up Interstitial Banner
+			 */
+			protected function initializeAdMob():void {
+				// Initialize adMob Engine
+				adMob = new AdMobManager();
+				adMob = AdMobManager.manager;
+				
+				// Check for Supported Device
+				if(!adMob.isSupported) {
+					adMob = null;
+					return;
+				}
+				
+				// Set Operation settings
+				adMob.isCDT = true;
+				adMob.verbose = true;
+				adMob.operationMode = AdMobManager.PROD_MODE;
+				
+				// Set AdMobId settings
+				if (adMob.device == AdMobManager.IOS) {
+					// Debug
+					trace("AdManagerView ==> Ad Mob Initializing: Loading for iOS Devices!");
+					
+					// Ad Mob IDs
+					adMob.bannersAdMobId = "ca-app-pub-0005046673289888/1349548894";
+					adMob.interstitialAdMobId = "ca-app-pub-0005046673289888/8872815696";
+				} else {
+					// Debug
+					trace("AdManagerView ==> Ad Mob Initializing: Loading for Android Devices!");
+					
+					// Ad Mob IDs
+					adMob.bannersAdMobId = "ca-app-pub-0005046673289888/4442616098";
+					adMob.interstitialAdMobId = "ca-app-pub-0005046673289888/2965882891";
+				}
+				
+				// Attach Dispatchers
+				adMob.dispatcher.addEventListener(AdMobEvent.INTERSTITIAL_AD_CLOSED, onInterstitialClose);
+				adMob.dispatcher.addEventListener(AdMobEvent.INTERSTITIAL_FAILED_TO_LOAD , onInterstitialFailure);
+				adMob.dispatcher.addEventListener(AdMobEvent.INTERSTITIAL_LEFT_APPLICATION , onInterstitialClose);
+				
+				// Create Interstitial Banner
+				adMob.createInterstitial(adMob.interstitialAdMobId, true);
+			}
+			
+			/**
+			 * Clean Ad Mob
+			 */
+			protected function cleanAdMob():void {
+				if(adMob != null) {
+					// Debug
+					trace("AdManagerView ==> Ad Mob Cleaning: Hiding all banners!");
+					
+					// Remove All Banner
+					adMob.hideAllBanner();
+					adMob.removeAllBanner();
+					
+					// Remove all Event Listener
+					adMob.dispatcher.removeEventListener(AdMobEvent.INTERSTITIAL_LEFT_APPLICATION , onInterstitialClose);
+					adMob.dispatcher.removeEventListener(AdMobEvent.INTERSTITIAL_FAILED_TO_LOAD , onInterstitialFailure);
+					adMob.dispatcher.removeEventListener(AdMobEvent.INTERSTITIAL_AD_CLOSED, onInterstitialClose);
+					
+					// Garbage Collect Ad Mob Data Structure
+					adMob = null;
+				}
+			}
+			
+			
+			/**
+			 * On Interstitial Close Button
+			 */
+			protected function onInterstitialClose(e:Event):void {
+				// Debug
+				trace("AdManagerView ==> OnInterClose: Starting Timer!");
+				
+				// Remove Previously created Interstitial
+				if(adMob != null) {
+					cleanAdMob();
+				}
+				
+				// Setup new timer - 8 hours
+				timer = new Timer(480000, 1);
+				
+				// Setup Timer Events Listener
+				timer.addEventListener(TimerEvent.TIMER_COMPLETE, onTimerExpire);
+				
+				// Start Timer
+				timer.start();
+			}
+			
+			/**
+			 * Reshow All Banners
+			 */
+			protected function onTimerExpire(event:TimerEvent):void {
+				// Stop Timer
+				timer.stop();
+				
+				// Show Interstitial Banner
+				if(adMob == null) {
+					// Debug
+					trace("AdManagerView ==> OnTimerExpire: Showing all banners again!");
+					
+					// Initialize Data Structure
+					initializeAdMob();
+				} else {
+					// Debug
+					trace("AdManagerView ==> OnTimerExpire: Datastructure not correctly purged ... shutting down admanager!");
+				}
+			}
+			
+			/**
+			 * Something goes wrong
+			 */
+			protected function onInterstitialFailure(e:AdMobEvent):void {
+				// It's possible to show the specific 
+				// banner who did dispatch the event
+				// e.data:String = Banner unique ID
+				// adMob.showBanner(e.data);
+				
+				// Debug
+				trace("AdManagerView ==> Intersitial Failure: " + e.data);
+				
+				// Clean Ad Mob Data Structure
+				cleanAdMob();
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<s:BorderContainer id="adContainer" left="0" right="0" bottom="0" top="0" borderColor="0xFFFFFF" borderWeight="1" includeInLayout.Controls="false"
+					   backgroundAlpha="0.9" backgroundImage="@Embed('/assets/images/bg.png')" backgroundImageFillMode="repeat" visible.Controls="false">
+		
+		<s:layout>
+			<s:HorizontalLayout verticalAlign="middle" horizontalAlign="center"/>
+		</s:layout>
+		
+		<s:Label text="ADs Loading ..." color="0xFFFFFC"/>
+	</s:BorderContainer>
+	
+</s:View>

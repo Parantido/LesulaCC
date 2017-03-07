@@ -1,0 +1,163 @@
+package org.techfusion.view.mediators {
+	
+	// Import default mx Classes
+	import flash.utils.Dictionary;
+	
+	import mx.events.FlexEvent;
+	
+	import org.puremvc.as3.interfaces.IMediator;
+	import org.puremvc.as3.interfaces.INotification;
+	import org.puremvc.as3.patterns.mediator.Mediator;
+	import org.techfusion.controller.AsteriskCommand;
+	import org.techfusion.controller.DisconnectCommand;
+	import org.techfusion.controller.OnMessageCommand;
+	import org.techfusion.events.AsteriskEvent;
+	import org.techfusion.events.DatabaseViewEvent;
+	import org.techfusion.view.components.MainView;
+	
+	public class MainViewMediator extends Mediator implements IMediator {
+		
+		public static const NAME:String		= "MainMediator";
+		
+		public function MainViewMediator(viewComponent:Object = null) {
+			// Debug
+			trace(NAME + " ==> Constructor");
+			
+			// Pass the viewComponent to the superclass where it
+			// will be stored in the inherited viewComponent property
+			super(NAME, viewComponent);
+			
+			// Initialize View
+			initializeView();
+			
+			// Add Object Event Listener
+			mainView.mainApplicationTabbedView.addEventListener(FlexEvent.VALUE_COMMIT, doingRequests);
+			
+			// Do Main Tab First Query
+			sendNotification(ApplicationFacade.ASTEVENT, null, AsteriskEvent.GETCONFIG);
+		}
+		
+		private function get mainView():MainView {
+			return viewComponent as MainView;
+		}
+		
+		override public function listNotificationInterests():Array {
+			return [
+				ApplicationFacade.CLOSED,
+				ApplicationFacade.DISCONNECT,
+				ApplicationFacade.DB_SETBOOKMARK_OK,
+				ApplicationFacade.DB_GETBOOKMARK_OK
+			];
+		}
+		
+		override public function handleNotification(notification:INotification):void {
+			switch (notification.getName()) {
+				case ApplicationFacade.CLOSED:
+				case ApplicationFacade.DISCONNECT:
+					// Back to Login View
+					mainView.navigator.popToFirstView();
+					break;
+				case ApplicationFacade.DB_SETBOOKMARK_OK:
+					// Clear BookMark Cache
+					ApplicationFacade.getInstance()._bookmarks = new Dictionary();
+					break;
+				case ApplicationFacade.DB_GETBOOKMARK_OK:
+					// Retrieve Bookmark Object
+					var bookmark:Object = notification.getBody();
+					if(!bookmark) return;
+					
+					// Build Unique BookMark Key
+					var bookmark_unique:String = bookmark.bookmark_key + "@" + bookmark.server;
+					
+					// Store Dict Entry if doesn't exists
+					ApplicationFacade.getInstance()._bookmarks[bookmark_unique] = bookmark.bookmark_value;
+					break;
+				default:
+					break;
+			}
+		}
+		
+		/**
+		 * Execute Action Based on Selected Tabs
+		 */
+		private function doingRequests(evt:FlexEvent):void {
+			switch(mainView.mainApplicationTabbedView.selectedIndex) {
+				// Main Peers Tab
+				case 0:
+					// Request For Peers (SIP/IAX) List
+					sendNotification(ApplicationFacade.ASTEVENT, null, AsteriskEvent.GETPEERS);
+				break;
+				
+				// Queues Tab
+				case 1:
+					// Request For Queues List
+					// N.B.: Not needed at all
+					// sendNotification(ApplicationFacade.ASTEVENT, null, AsteriskEvent.GETQUEUES);
+				break;
+			}
+		}
+		
+		override public function onRegister():void {
+			// Initialize View if Needed
+			initializeView();
+			
+			// Sending Initial Configuration Notification
+			sendNotification(ApplicationFacade.ASTEVENT, null, AsteriskEvent.DOCONF);
+			
+			// Requesting Bookmarks
+			var credentials:Object = ApplicationFacade.getInstance()._credentials;
+			sendNotification(ApplicationFacade.DBCMD, credentials, DatabaseViewEvent.DB_GETBOOKMARK);
+			
+			// Debug
+			trace(NAME + " ==> MainViewMediator Registered");
+		}
+		
+		private function initializeView():void {
+			// Register Commands
+			if(!facade.hasCommand(ApplicationFacade.ASTEVENT)) {
+				facade.registerCommand(ApplicationFacade.ASTEVENT, AsteriskCommand);
+			}
+			
+			if(!facade.hasCommand(ApplicationFacade.DISCONNECT)) {
+				facade.registerCommand(ApplicationFacade.DISCONNECT, DisconnectCommand);
+			}
+			
+			if(!facade.hasCommand(ApplicationFacade.ONMESSAGE)) {
+				facade.registerCommand(ApplicationFacade.ONMESSAGE, OnMessageCommand);
+			}
+			
+			// Register Mediator
+			if(!facade.hasMediator(GrowlNotificationMediator.NAME)) {
+				facade.registerMediator(new GrowlNotificationMediator(mainView));
+			}
+		}
+		
+		override public function onRemove():void {
+			// Deinitialize View if Needed
+			deinitializeView();
+			
+			// Debug
+			trace(NAME + " ==> MainViewMediator Unregistered");
+		}
+		
+		private function deinitializeView():void {
+			// UnRegister Commands
+			if(facade.hasMediator(GrowlNotificationMediator.NAME)) {
+				facade.removeMediator(GrowlNotificationMediator.NAME);
+			}
+			
+			// UnRegister Commands
+			if(facade.hasCommand(ApplicationFacade.DISCONNECT)) {
+				facade.removeCommand(ApplicationFacade.DISCONNECT);
+			}
+			
+			if(facade.hasCommand(ApplicationFacade.ASTEVENT)) {
+				facade.removeCommand(ApplicationFacade.ASTEVENT);
+			}
+			
+			if(facade.hasCommand(ApplicationFacade.ONMESSAGE)) {
+				facade.removeCommand(ApplicationFacade.ONMESSAGE);
+			}
+		}
+	}
+}

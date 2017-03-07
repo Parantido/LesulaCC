@@ -1,0 +1,165 @@
+package {
+	// Internal Methods
+	import flash.utils.Dictionary;
+	
+	import org.puremvc.as3.interfaces.IFacade;
+	import org.puremvc.as3.patterns.facade.Facade;
+	import org.puremvc.as3.patterns.observer.Notification;
+	import org.techfusion.controller.LoginCommand;
+	import org.techfusion.controller.StartupCommand;
+	
+	public class ApplicationFacade extends Facade implements IFacade {
+		
+		// Global Credentials Storage
+		public var _credentials:Object 				= new Object();
+		public var _bookmarks:Dictionary			= new Dictionary();
+		
+		// General Notification Class Identifier
+		public static const NAME:String				= "ApplicationFacade";
+		public static const STARTUP:String			= NAME + "Startup";
+		
+		// Define Application Type
+		public static const APPTYPE:Boolean			= Boolean(CONFIG::trial);
+		public static const APPLIMCTXS:int			= 5;
+		public static const APPLIMPEERS:int			= 5;
+		public static const APPLIMQUEUES:int		= 1;
+		public static const APPLIMAGENTS:int		= 3;
+		public static const APPLIMDEBUGCLI:int		= 20;
+		public static const APPLIMDEBUGCALLS:int	= 1;
+		
+		// View Default Create/Destroy Policy Actions
+		public static const CREATE:String			= "create";
+		public static const DESTROY:String			= "destroy";
+		
+		// Login/Logout Commands Identifier
+		public static const LOGIN:String			= "login";
+		public static const DISCONNECT:String		= "disconnect";
+		
+		// Database Commands Identifier
+		public static const DBCMD:String			= "db_command";
+		
+		// Asterisk Commands Identifier
+		public static const ASTEVENT:String			= "asterisk_event";
+		
+		// **********************************************
+		// Manager Socket Event Commands Identifier
+		// *******************************************//
+		
+		//** Login Related 
+		public static const VALID_LOGIN:String		= "validlogin";
+		public static const INVALID_LOGIN:String	= "invalidlogin";
+		
+		// Generic Message Events
+		public static const INFO_MESSAGE:String			= "info_message";
+		public static const INFO_MESSAGE_OK:String		= "info_message_ok";
+		public static const INFO_MESSAGE_KO:String		= "info_message_ko";
+		public static const INFO_MESSAGE_FLT:String		= "info_message_flt";
+		
+		//** Database Related
+		public static const DB_INITIALIZED:String		= "db_initialized";
+		public static const DB_GETCREDENTS:String		= "db_getcredents";
+		public static const DB_GETCREDENTS_OK:String	= "db_getcredents_ok";
+		public static const DB_GETCREDENTS_KO:String	= "db_getcredents_ko";
+		public static const DB_SETCREDENTS:String		= "db_setcredents";
+		public static const DB_SETCREDENTS_OK:String	= "db_setcredents_ok";
+		public static const DB_SETCREDENTS_KO:String	= "db_setcredents_ko";
+		public static const DB_DELCREDENTS:String		= "db_delcredents";
+		public static const DB_DELCREDENTS_OK:String	= "db_delcredents_ok";
+		public static const DB_DELCREDENTS_KO:String	= "db_delcredents_ko";
+		public static const DB_GETBOOKMARK:String		= "db_getbookmark";
+		public static const DB_GETBOOKMARK_OK:String	= "db_getbookmark_ok";
+		public static const DB_GETBOOKMARK_KO:String	= "db_getbookmark_ko";
+		public static const DB_SETBOOKMARK:String		= "db_setbookmark";
+		public static const DB_SETBOOKMARK_OK:String	= "db_setbookmark_ok";
+		public static const DB_SETBOOKMARK_KO:String	= "db_setbookmark_ko";
+		
+		//** AMI Explicit Requests
+		public static const CTXS:String				= "asterisk_ctxs";
+		public static const PARK:String				= "asterisk_park";
+		public static const DOCONF:String			= "asterisk_doconf";
+		public static const HANGUP:String			= "asterisk_hangup";
+		public static const CTXIDXS:String			= "asterisk_ctxidxs";
+		public static const GET_CTXS:String			= "asterisk_getctxs";
+		public static const TRANSFER:String			= "asterisk_transfer";
+		public static const GET_CONFIG:String		= "asterisk_getconfig";
+		public static const GET_QUEUES:String		= "asterisk_getqueues";
+		public static const GET_CTXIDXS:String		= "asterisk_getctxidxs";
+		public static const GET_CHAN_STATUS:String	= "asterisk_getchanstatus";
+		public static const GET_QUEUE_STATUS:String	= "asterisk_getqueuestatus";
+		public static const GET_QUEUE_SUMMAR:String	= "asterisk_getqueuesummary";
+		
+		//** Peer Related
+		public static const PEER_ENTRY:String		= "peerentry";
+		public static const PEER_STATUS:String		= "peerstatus";
+		
+		//** Queue Related
+		public static const QUEUE_JOIN:String		= "queuejoin";
+		public static const QUEUE_LEAVE:String		= "queueleave";
+		public static const QUEUE_MEM:String		= "queuemember";
+		public static const QUEUE_PAR:String		= "queueparams";
+		public static const QUEUE_SUM:String		= "queuesummary";
+		public static const QUEUE_MEMSTATUS:String	= "queuememberstatus";
+		public static const QUEUE_VIEW_FNSHD:String	= "queueviewfinished";
+		public static const QUEUE_VIEW_REMVD:String	= "queueviewremoved";
+		
+		//** Dialplan Debugger
+		public static const VAR_SET:String			= "varset";
+		public static const NEW_EXTEN:String		= "newexten";
+		public static const DIAL_ENTRY:String		= "listdialplan";
+		
+		//** Channel Related 
+		public static const DIAL:String				= "dial";		
+		public static const HANG:String				= "hangup";
+		public static const STATUS:String			= "status";		
+		public static const NEW_STATE:String		= "newstate";
+		public static const EXT_STATUS:String		= "extstatus";
+		public static const NEW_CHAN:String			= "newchannel";
+		public static const RTCP_TX:String			= "rtcpsent";
+		public static const RTCP_RX:String			= "rtcpreceived";
+		
+		//** TCP Connection Related
+		public static const CLOSED:String			= "closed";
+		public static const TXERROR:String			= "txerror";
+		public static const RXERROR:String			= "rxerror";
+		public static const IOERROR:String			= "ioerror";
+		public static const SECERROR:String			= "secerror";
+		public static const CONNECTED:String		= "connected";
+		public static const CONNERROR:String		= "connerror";
+		public static const ONMESSAGE:String		= "onmessage";
+		
+		// Return Application Facade Instance
+		public static function getInstance():ApplicationFacade {
+			return (instance ? instance:new ApplicationFacade()) as ApplicationFacade;
+		}
+		
+		// Startup Application Stage
+		public function startup(stage:Object):void {
+			// Debug
+			trace("ApplicationFacade ==> Calling Startup Notify");
+			
+			// Send Startup Notification 
+			sendNotification(STARTUP, stage);
+		}
+		
+		// Init ApplicationFacade Controller
+		override protected function initializeController():void {
+			// Get Parent Instance
+			super.initializeController();
+			
+			// Register Main Startup Notification to StartupCommand Command
+			registerCommand(STARTUP, StartupCommand);
+			
+			// Register All Notification Related Commands
+			registerCommand(LOGIN, LoginCommand);
+			
+			// Debug
+			trace("ApplicationFacade ==> Main Controller Initialized ...");
+		}
+		
+		// DEBUG Method: Trace all Notification fire UP!
+		override public function sendNotification(notificationName:String, body:Object = null, type:String = null):void {
+			// Set Observer
+			notifyObservers(new Notification(notificationName, body, type));
+		}
+	}
+}

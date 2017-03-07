@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:fx="http://ns.adobe.com/mxml/2009"
+		xmlns:s="library://ns.adobe.com/flex/spark"
+		actionBarVisible="true"		
+		viewActivate="{ viewActivate(); }"
+		viewDeactivate="{ viewDeactivate(); }"
+		skinClass="assets.skins.backgroundedView">
+	
+	<s:states>
+		<s:State name="Queues"/>
+		<s:State name="Agents"/>
+	</s:states>
+	
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import mx.collections.ArrayCollection;
+			
+			import org.puremvc.as3.patterns.facade.Facade;
+			import org.techfusion.view.mediators.LeftQueuesViewMediator;
+			
+			import spark.components.SplitViewNavigator;
+			import spark.components.ViewNavigator;
+			
+			[Bindable] public  var queuesIndex:Dictionary = new Dictionary();
+			[Bindable] public  var queuesMemberIndex:Dictionary = new Dictionary();
+			[Bindable] public  var queuesDataProvider:ArrayCollection = new ArrayCollection();
+			[Bindable] public  var queuesMemberDataProvider:ArrayCollection = new ArrayCollection();
+			
+			// Retrieve Facade Instance
+			private var facade:Facade = ApplicationFacade.getInstance();
+			
+			protected function viewActivate():void {
+				// Initialize Data Providers
+				queuesIndex = new Dictionary();
+				queuesDataProvider = new ArrayCollection();
+				
+				// Registering Mediators
+				if(!facade.hasMediator(LeftQueuesViewMediator.NAME)) {
+					facade.registerMediator(new LeftQueuesViewMediator(this));
+					// Dispatch Initialization Events
+					dispatchEvent(new Event(ApplicationFacade.CREATE));
+				}
+				
+				// Apply Filter Function to Queue DataProvider
+				queuesDataProvider.filterFunction = queueFilterFunction;
+			}
+			
+			protected function viewDeactivate():void {
+				// Unregistering Mediators
+				if(facade.hasMediator(LeftQueuesViewMediator.NAME)) {
+					facade.removeMediator(LeftQueuesViewMediator.NAME);
+					// Dispatch Deinitialization Events
+					dispatchEvent(new Event(ApplicationFacade.DESTROY));
+				}
+			}
+			
+			/**
+			 * Passing Data to Right End View
+			 */
+			protected function passViewData(data:Object):void {
+				if(data) {
+					// Create a reference to the SplitViewNavigator.
+					var splitNavigator:SplitViewNavigator = navigator.parentNavigator as SplitViewNavigator;
+					
+					// Create a reference to the ViewNavigator for the rigth frame.
+					var rightNavigator:ViewNavigator = splitNavigator.getViewNavigatorAt(1) as ViewNavigator;
+					
+					// Update View Data
+					rightNavigator.activeView.data = data;
+				}
+			}
+			
+			/**
+			 * Switches between member or queue views
+			 */
+			protected function queueView_changeHandler(event:Event):void {
+				// Object to be passed
+				var object:Object = new Object();
+				
+				switch (currentState) {
+					case "Agents":
+						object.view = currentState = "Queues";
+						break;
+					case "Queues":
+						object.view = currentState = "Agents";
+						break;
+					default:
+						object.view = currentState = "Queues";
+						break;
+				}
+				
+				// Passing View decision to the other End
+				passViewData(object);
+			}
+			
+			/**
+			 * Peers View Filter Function
+			 */
+			protected function queueFilterFunction(obj:XML):Boolean {
+				if(rbShowAll.selected) {
+					return(true);
+				} else if(rbHideOff.selected) {
+					if((int(obj.LoggedIn) > 0) && (int(obj.Available) > 0))
+						return true;
+				} else {
+					// Startup Position
+					return(true);
+				}
+				
+				// Don't show element if something
+				// goes wrong
+				return(false);
+			}
+			
+			/**
+			 * Trigger Filter Function on Peers Data Provider
+			 */
+			protected function searchDataProvider(evt:Event):void {
+				// Refresh DataProvider
+				queuesDataProvider.refresh();
+				// Close Callout DropDown
+				showView.closeDropDown();
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<s:actionContent>
+		<s:CalloutButton id="showView" icon="@Embed('/assets/images/settings.png')" includeIn="Queues">
+			<s:calloutContent>
+				<s:VGroup width="250" height="180" verticalAlign="middle" horizontalAlign="left"
+						  paddingLeft="5" paddingRight="20">
+					<s:RadioButton id="rbShowAll" label="Show All"   click="{ searchDataProvider(event); }" selected="true"/>
+					<s:RadioButton id="rbHideOff" label="Hide Empty" click="{ searchDataProvider(event); }" selected="false"/>
+				</s:VGroup>
+			</s:calloutContent>
+		</s:CalloutButton>
+
+		<s:Button id="viewToggleSwitch" fontFamily="Ubuntu-DG"
+				  icon.Queues="@Embed('/assets/images/members.png')"
+				  icon.Agents="@Embed('/assets/images/queues.png')" click="{ queueView_changeHandler(event); }"/>
+	</s:actionContent>
+	
+	<s:List visible="false" includeInLayout="false" includeInLayout.Queues="true" visible.Queues="true"
+			itemRenderer="org.techfusion.view.renderers.leftNavigatorQueuesRenderer" contentBackgroundAlpha="0"
+			id="queuesList" width="100%" height="100%" dataProvider="{ queuesDataProvider }" labelField="Queue"
+			pageScrollingEnabled="false" useVirtualLayout="true" allowMultipleSelection="false" borderVisible="false">
+		
+		<s:layout>
+			<s:VerticalLayout useVirtualLayout="true" horizontalAlign="center" verticalAlign="top" paddingTop="10"/>
+		</s:layout>
+		
+	</s:List>
+	
+	<s:List visible="false" includeInLayout="false" includeInLayout.Agents="true" visible.Agents="true"
+			itemRenderer="org.techfusion.view.renderers.leftNavigatorAgentsRenderer"  contentBackgroundAlpha="0"
+			id="agentsList" width="100%" height="100%" dataProvider="{ queuesMemberDataProvider }" labelField="Name"
+			pageScrollingEnabled="false" useVirtualLayout="true" allowMultipleSelection="false" borderVisible="false">
+		
+		<s:layout>
+			<s:VerticalLayout useVirtualLayout="true" horizontalAlign="center" verticalAlign="top" paddingTop="10"/>
+		</s:layout>
+		
+	</s:List>
+	
+	<s:Group id="emptyMsgBox" left="0" right="0" top="0" bottom="0" alpha=".7"
+			 visible.Queues="{!queuesDataProvider.length}" includeInLayout.Queues="{!queuesDataProvider.length}"
+			 visible.Agents="{!queuesMemberDataProvider.length}" includeInLayout.Agents="{!queuesMemberDataProvider.length}">
+		
+		<s:Rect left="0" right="0" top="0" bottom="0">
+			<s:fill>
+				<s:SolidColor color="0x000000" />
+			</s:fill>
+		</s:Rect>
+		
+		<s:Label text.Queues="No Queues found ..." text.Agents="No Agents found ..." color="0xffffff" verticalCenter="0" horizontalCenter="0" />
+	</s:Group>
+	
+</s:View>

@@ -1,0 +1,309 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:ui="http://www.kapit.fr/flex4/ui"
+		xmlns:fx="http://ns.adobe.com/mxml/2009"
+		xmlns:mx="library://ns.adobe.com/flex/mx"
+		xmlns:s="library://ns.adobe.com/flex/spark" left="0" right="0" top="0" bottom="0"
+		skinClass="assets.skins.backgroundedView" actionBarVisible="false" destructionPolicy="never"
+		viewActivate="{ viewActivate(); }" viewDeactivate="{ viewDeactivate(); }" addedToStage="{ initComponents(); }">
+	
+	<s:states>
+		<s:State name="Base"/>
+		<s:State name="Error"/>
+	</s:states>
+	
+	<s:transitions>
+		<s:Transition fromState="*" toState="*">
+			<s:Resize target="{ mainLoginWindow }"/>
+		</s:Transition>
+	</s:transitions>
+	
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+
+	<fx:Script>
+		<![CDATA[
+			import mx.collections.ArrayCollection;
+			
+			import org.puremvc.as3.patterns.facade.Facade;
+			import org.techfusion.events.DatabaseViewEvent;
+			import org.techfusion.events.LoginViewEvent;
+			import org.techfusion.view.mediators.LoginViewMediator;
+			
+			// Retrieve Facade Instance
+			private var facade:Facade = ApplicationFacade.getInstance();
+			
+			[Bindable]
+			public  var credentialsDataProvider:ArrayCollection = new ArrayCollection();
+			
+			// Credentials Storing Flag
+			public  var storeCredentials:Boolean = false;
+			
+			// Initialize View
+			private function viewActivate():void {
+				// Registering Mediators
+				if(!facade.hasMediator(LoginViewMediator.NAME)) {
+					facade.registerMediator(new LoginViewMediator(this));
+				}
+				
+				// Change App Logo in Free Edition
+				if(ApplicationFacade.APPTYPE) 
+					appLogo.source = '/assets/images/login_intro_free.png';
+				
+				// Check if Form is Already Valid
+				credentialsChange();
+			}
+			
+			/**
+			 * Setup view based on device capabilities
+			 */
+			private function initComponents():void {
+				// Debug
+				trace("LoginView ==> Stage Height: " + stage.stageHeight + " Stage Width: " + stage.stageWidth);
+				
+				// Resise View
+				//this.width	= stage.stageWidth;
+				//this.height	= stage.stageHeight;
+				
+				// Scale logo on minimum allowed Height
+				if(stage.stageHeight <= 640) {
+					appLogo.height	= 71;
+					appLogo.width	= 220;
+					
+					btnConnect.height	= 40;
+					btnConnect.width	= 100;
+				}
+			}
+			
+			// DeInitialize View
+			private function viewDeactivate():void {
+				// UnRegistering Mediators
+				if(facade.hasMediator(LoginViewMediator.NAME)) {
+					facade.removeMediator(LoginViewMediator.NAME);
+				}
+			}
+			
+			/**
+			 * Update Form on Credentials Select
+			 */
+			public function credentialSelect():void {
+				if(ddlSavedCredentials.selectedIndex >= 0) {
+					// Retrieve Credentials Object
+					var credentials:Object = ddlSavedCredentials.selectedItem;
+					if(credentials != null) {
+						// Update Form
+						txtUsername.text	= credentials.username;
+						txtPassword.text	= credentials.passwd;
+						txtServer.text		= credentials.server;
+						
+						// Setup Stored Credentials Flag
+						chkSaveBox.selected = true;
+					}
+					
+				}
+			}
+			
+			/**
+			 * Validate Form
+			 */
+			private function credentialsChange():void {
+				// Reset Store Credentials if selected
+				if(chkSaveBox.selected) chkSaveBox.selected = false;
+				
+				// IP Address Validator
+				var ptrn:RegExp		= new RegExp("^([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.([01]?\\d\\d?|2[0-4]\\d|25[0-5])$");
+				var ptrn2:RegExp	= new RegExp("(?=^.{1,254}$)(^(?:(?!\d+\.|-)[a-zA-Z0-9_\-]{1,63}(?<!-)\.?)+(?:[a-zA-Z]{2,})$)");
+				
+				// Data Validation
+				if(ptrn.test(txtServer.text) || ptrn2.test(txtServer.text)) {
+					chkSaveBox.enabled = btnConnect.enabled = (txtUsername.text.length > 0 && txtPassword.text.length > 0 && txtServer.text.length > 0);
+				} else {
+					chkSaveBox.enabled = btnConnect.enabled = false;
+				}
+			}
+
+			/**
+			 * Handle Login Button Event
+			 */
+			private function onConnect():void {
+				// Lock interface -- prevent multiple click
+				mainLoginWindow.enabled = false;
+				
+				// Dispatch Login Event
+				dispatchEvent(new LoginViewEvent(LoginViewEvent.LOGIN, txtUsername.text, txtPassword.text, txtServer.text)); 
+			}
+			
+			/**
+			 * Save/Remove Credentials
+			 */
+			protected function chkSaveBox_clickHandler(event:MouseEvent):void {				
+				// Set Credentials store flag to True
+				// or remove a saved credential
+				if(!chkSaveBox.selected) {
+					// Retrieve Selected Credentials
+					var credentials:Object = ddlSavedCredentials.selectedItem;
+					
+					if(
+						String(credentials.username).length > 0 &&
+						String(credentials.passwd).length   > 0 &&
+						String(credentials.server).length   > 0 
+					) {
+						// Dispatch Remove Event
+						dispatchEvent(new DatabaseViewEvent(
+							ApplicationFacade.DB_DELCREDENTS, ddlSavedCredentials.selectedItem
+						));
+						// Remove Entry from DataProvider
+						credentialsDataProvider.removeItemAt(ddlSavedCredentials.selectedIndex);
+						credentialsDataProvider.refresh();
+					}
+
+					// Reset Form
+					ddlSavedCredentials.selectedIndex = 0;
+					txtUsername.text	= "";
+					txtPassword.text	= "";
+					txtServer.text		= "";
+					storeCredentials	= false;
+					
+				} else {
+					storeCredentials = true;
+				}
+			}
+			
+			/**
+			 * Spinnerlist Composite Label Function
+			 */
+			private function credentialsFunction(credential:Object):String {
+				if(String(credential.username).length > 0 && String(credential.server).length > 0)
+					return credential.username + "@" + credential.server;
+				else
+					return "-- None --";
+			}
+		]]>
+	</fx:Script>
+	
+	<s:layout>
+		<s:VerticalLayout horizontalAlign="center" verticalAlign="middle"/>
+	</s:layout>
+		
+	<s:Image source="@Embed('/assets/images/login_intro.png')"
+			 scaleMode="zoom" smooth="true" smoothingQuality="default" id="appLogo"/>
+
+	<s:Spacer height="3"/>
+	
+	<s:Group id="mainLoginWindow" alpha="1" width="95%" horizontalCenter="0" verticalCenter="0" includeIn="Base">
+		
+		<s:layout>
+			<s:HorizontalLayout gap="10" horizontalAlign="center" verticalAlign="middle"
+								paddingRight="10" paddingTop="10" paddingBottom="10" paddingLeft="10"/>
+		</s:layout>
+		
+		<s:VGroup horizontalAlign="center" verticalAlign="middle" width="50%" height="100%">
+		
+			<s:Label text="Credentials" fontSize="16" color="0xFFFFFF" width="100%"/>
+			<s:BorderContainer id="credentialsContainer" width="100%" height="100%"
+							   contentBackgroundColor="0xFFFFFF" cornerRadius="5">
+				
+				<s:layout>
+					<s:VerticalLayout horizontalAlign="center" verticalAlign="middle" gap="0"/>
+				</s:layout>
+
+				<s:TextInput id="txtUsername" width="100%" height="80" borderVisible="false"
+							 fontSize="24" prompt="Username" textAlign="center" needsSoftKeyboard="true" autoCapitalize="none" returnKeyLabel="done"
+							 autoCorrect="false" change="{ credentialsChange(); }" enabled="true" fontFamily="_sans" enter="{ stage.focus = null; }"/>
+				
+				<s:Line width="95%">
+					<s:stroke>
+						<s:SolidColorStroke color="gray" caps="round" weight="1" alpha="0.2" />
+					</s:stroke>
+				</s:Line>
+				
+				<s:TextInput id="txtPassword" width="100%" height="80" borderVisible="false" autoCapitalize="none"				 
+							 fontFamily="_sans" fontSize="24" prompt="Password" textAlign="center" needsSoftKeyboard="true" returnKeyLabel="done"
+							 autoCorrect="false" change="{ credentialsChange(); }" displayAsPassword="true" enabled="true" enter="{ stage.focus = null; }"/>
+			
+				<s:Line width="95%">
+					<s:stroke>
+						<s:SolidColorStroke color="gray" caps="round" weight="1" alpha="0.2" />
+					</s:stroke>
+				</s:Line>
+				
+				<s:TextInput id="txtServer" width="100%" height="80" borderVisible="false" softKeyboardType="url"
+							 change="{ credentialsChange(); }" enabled="true" fontFamily="_sans"  autoCapitalize="none" returnKeyLabel="done"
+							 fontSize="24" prompt="Server Address/FQDN" textAlign="center" needsSoftKeyboard="true" enter="{ stage.focus = null; }"/>
+				
+			</s:BorderContainer>
+			
+		</s:VGroup>
+		
+		<s:VGroup horizontalAlign="center" verticalAlign="middle" width="50%" height="100%">
+		
+			<s:Label id="lblSessions" text="{ int(credentialsDataProvider.length - 1) + ' Stored Session/s' }" width="100%" fontSize="16" color="0xFFFFFF"/>
+			<s:BorderContainer id="controlsContainer" width="100%" height="100%" contentBackgroundColor="0xFFFFFF" cornerRadius="5" >
+				<s:layout>
+					<s:VerticalLayout horizontalAlign="center" verticalAlign="middle"
+									  paddingTop="5" paddingBottom="5" paddingLeft="5" paddingRight="5"/>
+				</s:layout>
+				
+				<s:SpinnerListContainer width="100%" height="140">
+					<s:SpinnerList width="100%" change="{ credentialSelect(); }" dataProvider="{ credentialsDataProvider }"
+								   height="50"  fontSize="20" labelFunction="credentialsFunction" textAlign="center"
+								   id="ddlSavedCredentials">
+					</s:SpinnerList>
+				</s:SpinnerListContainer>
+	
+				<s:Line width="95%">
+					<s:stroke>
+						<s:SolidColorStroke color="gray" caps="round" weight="2" alpha="0.2" />
+					</s:stroke>
+				</s:Line>
+				
+				<s:CheckBox id="chkSaveBox" click="{ chkSaveBox_clickHandler(event); }" color="#848485" fontSize="16"
+							skinClass="assets.skins.CustomCheckBoxSkin" label="Save Credentials"/>
+				
+				<s:Line width="95%">
+					<s:stroke>
+						<s:SolidColorStroke color="gray" caps="round" weight="2" alpha="0.2" />
+					</s:stroke>
+				</s:Line>
+				
+			</s:BorderContainer>
+		
+		</s:VGroup>
+		
+	</s:Group>
+	
+	<s:Line width="{ appLogo.width }">
+		<s:stroke>
+			<s:SolidColorStroke color="gray" caps="round" weight="4" alpha="0.2" />
+		</s:stroke>
+	</s:Line>
+	
+	<s:Image id="btnConnect" click="{ onConnect(); }" enabled="false" source="@Embed('/assets/images/connect.png')"
+			 buttonMode="true" includeIn="Base" smooth="true" smoothingQuality="default"/>
+	
+	<s:BorderContainer includeIn="Error" width="80%" contentBackgroundColor="0xFFFFFF" cornerRadius="5" horizontalCenter="0" verticalCenter="0">
+		
+		<s:layout>
+			<s:VerticalLayout horizontalAlign="center" verticalAlign="middle" paddingTop="10" paddingBottom="10"/>
+		</s:layout>
+		
+		<s:HGroup verticalAlign="middle" horizontalAlign="left" width="95%">
+			<s:Label text="Error" width="100%"/>
+		</s:HGroup>
+		
+		<s:Line width="95%">
+			<s:stroke>
+				<s:SolidColorStroke color="gray" caps="round" weight="4" alpha="0.2" />
+			</s:stroke>
+		</s:Line>
+		
+		<s:Label id="errorLabel" width="95%" height="100%" paddingBottom="10" textAlign="center"
+				 verticalAlign="middle" color="#881919" fontSize="20"/>
+		
+		<s:HGroup width="95%" verticalAlign="middle" horizontalAlign="center">
+			<s:Button label="OK" click="{ currentState='Base'; }" width="80" height="40"/>
+		</s:HGroup>
+		
+	</s:BorderContainer>
+		
+</s:View>

@@ -1,0 +1,154 @@
+@namespace s  "library://ns.adobe.com/flex/spark";
+@namespace mx "library://ns.adobe.com/flex/mx";
+@namespace spark "spark.skins.spark.*";
+@namespace mobile "spark.skins.mobile.*";
+
+@font-face {
+	src: url("/assets/fonts/Ubuntu.ttf");
+	fontFamily: Ubuntu;
+	fontWeight: normal;
+	verticalAlign: middle;
+}
+
+@font-face {
+	src: url("/assets/fonts/Ubuntu-M.ttf");
+	fontFamily: Ubuntu;
+	fontWeight: bold;
+	verticalAlign: middle;
+}
+
+@font-face {
+	src: url("/assets/fonts/Ubuntu.ttf");
+	fontFamily: Ubuntu-DG;
+	fontWeight: normal;
+	embed-as-cff: false;
+	verticalAlign: middle;
+}
+
+@font-face {
+	src: url("/assets/fonts/Ubuntu-M.ttf");
+	fontFamily: Ubuntu-DG;
+	fontWeight: bold;
+	embed-as-cff: false;
+	verticalAlign: middle;
+}
+
+s|Application {
+	fontFamily: Ubuntu;
+}
+
+s|TabbedViewNavigator #mainApplicationTabbedView {
+	chromeColor: #028bba;
+}
+
+mobile|TabbedViewNavigatorTabBarFirstTabSkin, mobile|ButtonSkin, mx|UIComponent, mobile|RadioButtonSkin {
+	fontFamily: Ubuntu-DG;
+}
+
+s|SpinnerList, s|SpinnerListContainer, s|SpinnerListItemRenderer {
+	fontFamily: Ubuntu-DG;
+}
+
+s|Label, s|LabelItemRenderer {
+	fontFamily: Ubuntu;
+}
+
+s|ActionBar {
+	chromeColor: #007FB1;
+	defaultButtonAppearance: normal;
+	skinClass: ClassReference("spark.skins.mobile.ActionBarSkin");
+	textShadowAlpha: .65;
+	textShadowColor: #000000;
+	paddingBottom: 1;
+	paddingLeft: 0;
+	paddingRight: 0;
+	paddingTop: 1;
+}
+
+s|ActionBar #titleDisplay {
+	color: #FFFFFF;
+	fontFamily: Ubuntu-DG;
+	fontSize: 16;
+	fontWeight: bold;
+}
+
+mx|UIComponent {
+	fontFamily: Ubuntu-DG;
+}
+
+s|RichEditableText {
+	fontFamily: Ubuntu;
+}
+
+s|Label {
+	fontFamily: Ubuntu;
+}
+
+s|TextInput {
+	fontFamily: Ubuntu-DG;
+}
+
+s|CalloutButton {
+	fontFamily: Ubuntu-DG;
+	fontSize: 12;
+}
+
+s|RadioButton {
+	fontSize: 12;
+}
+
+mobile|CheckBoxSkin {
+	fontFamily: Ubuntu-DG;
+}
+
+.default {
+	skinClass: ClassReference("org.tylerchesley.bark.skins.NotificationRendererSkin");
+}
+
+.error {
+	
+}
+
+global {
+	vertical-align: middle;
+	font-family: Ubuntu-DG;
+}
+
+/****************************************************/
+/* Application DPI Auto Scale
+/****************************************************/
+
+/* Every os-platform @ 160dpi */
+@media (application-dpi: 160) {
+	s|Button {
+		fontSize: 10;
+	}
+}
+
+/* IOS only @ 240dpi */
+@media (application-dpi: 240) and (os-platform: "IOS") {
+	s|Button {
+		fontSize: 11;
+	}
+}
+
+/* IOS at 160dpi or Android @ 160dpi */
+@media (os-platform: "IOS") and (application-dpi:160), (os-platform: "ANDROID") and (application-dpi: 160) {
+	s|Button {
+		fontSize: 13;        
+	}
+}
+
+/* Every os-platform except Android @ 240dpi */
+@media not all and (application-dpi: 240) and (os-platform: "Android") {
+	s|Button {
+		fontSize: 12;
+	}
+}    
+
+/* Every os-platform except IOS @ any DPI */
+@media not all and (os-platform: "IOS") {
+	s|Button {
+		fontSize: 14;        
+	}
+}

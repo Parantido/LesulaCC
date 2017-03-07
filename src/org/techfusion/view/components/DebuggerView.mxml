@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:fx="http://ns.adobe.com/mxml/2009"
+		xmlns:mx="library://ns.adobe.com/flex/mx"
+	    xmlns:s="library://ns.adobe.com/flex/spark"
+		skinClass="assets.skins.backgroundedView"
+	    xmlns:view="org.techfusion.view.components.*" actionBarVisible="true"
+		destructionPolicy="never" viewActivate="{ viewActivate(); }" viewDeactivate="{ viewDeactivate(); }">
+	
+	<s:layout>
+		<s:BasicLayout/>
+	</s:layout>
+	
+	<s:states>
+		<s:State name="Base"/>
+		<s:State name="Calls"/>
+	</s:states>
+	
+	<s:titleContent>
+		<s:Label fontFamily="Ubuntu" fontSize="22" fontWeight="bold" color="0xFFFFFF"
+				 text.Base="Dialplan Debugger" text.Calls="Call Quality Debugger"/>
+		<s:Line visible="false" height="1%" width="100%"/>	
+	</s:titleContent>
+	
+	<s:actionContent>
+		<s:Button label="Clear" click.Base="{ itemsDataProvider.removeAll(); }" click.Calls="{ callsDataProvider.removeAll(); }"
+				  fontFamily="_sans" fontSize="14" fontWeight="bold" includeIn="Base" includeInLayout="{ !ApplicationFacade.APPTYPE }"/>
+		<s:Button id="viewToggleSwitch" click="{ debuggerView_changeHandler(event); }" icon.Calls="@Embed('/assets/images/debugger.png')"
+				  fontFamily="Ubuntu-DG" fontSize="20" icon.Base="@Embed('/assets/images/call.png')"/>
+	</s:actionContent>
+	
+	<s:transitions>
+		<s:Transition fromState="*" toState="*">
+			<s:Fade target="{baseMainContainer}" duration="700" alphaFrom="0.0" alphaTo="1.0" />
+		</s:Transition>
+	</s:transitions>
+	
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import mx.collections.ArrayCollection;
+			import mx.events.CollectionEvent;
+			
+			import org.puremvc.as3.patterns.facade.Facade;
+			import org.techfusion.view.mediators.DebuggerViewMediator;
+			
+			import spark.core.NavigationUnit;
+			
+			// Retrieve Facade Instance
+			private var facade:Facade = ApplicationFacade.getInstance();
+			
+			// Data Providers
+			[Bindable] public  var itemsDataProvider:ArrayCollection = new ArrayCollection();
+			[Bindable] public  var callsDataProvider:ArrayCollection = new ArrayCollection();
+			
+			/**
+			 * On View Activate Actions
+			 */
+			private function viewActivate(): void {
+				// Registering Mediators
+				if(!facade.hasMediator(DebuggerViewMediator.NAME)) {
+					facade.registerMediator(new DebuggerViewMediator(this));
+				}
+				
+				itemsDataProvider.addEventListener(CollectionEvent.COLLECTION_CHANGE, scrollBottom);
+			}
+			
+			/**
+			 * On View DeActivate Actions
+			 */
+			private function viewDeactivate(): void {
+				// UnRegistering Mediators
+				if(facade.hasMediator(DebuggerViewMediator.NAME)) {
+					facade.removeMediator(DebuggerViewMediator.NAME);
+				}
+				
+				itemsDataProvider.removeEventListener(CollectionEvent.COLLECTION_CHANGE, scrollBottom);
+			}
+			
+			
+			private function scrollBottom(evt:Event):void {
+				// Auto Scroll List To The End
+				itemId.validateNow();
+				itemId.layout.verticalScrollPosition += 
+					itemId.layout.getVerticalScrollPositionDelta(NavigationUnit.END);
+			}
+		
+			/**
+			 * Switches between dialplan or calls debugger
+			 */
+			protected function debuggerView_changeHandler(event:Event):void {
+				switch (currentState) {
+					case "Base":
+						currentState = "Calls";
+						break;
+					case "Calls":
+						currentState = "Base";
+						break;
+					default:
+						currentState = "Base";
+						break;
+				}
+			}
+		]]>
+	</fx:Script>
+	
+	<s:BorderContainer id="baseMainContainer" width="100%" height="100%" cornerRadius="0" contentBackgroundAlpha="0" backgroundAlpha="0">
+
+		<s:List includeIn="Base" itemRenderer="org.techfusion.view.renderers.DialplanDebuggerItemRenderer"
+				id="itemId" width="100%" height="100%" dataProvider="{ itemsDataProvider }" contentBackgroundAlpha="0"
+				pageScrollingEnabled="true" useVirtualLayout="true" allowMultipleSelection="false" borderVisible="false">
+			
+			<s:layout>
+				<s:VerticalLayout useVirtualLayout="true" horizontalAlign="center" verticalAlign="top" paddingTop="10"/>
+			</s:layout>
+
+		</s:List>
+		
+		<s:DataGrid includeIn="Calls" id="gridCalls" color="0xFFFFFF" fontFamily="Ubuntu" fontSize="12" width="100%" height="100%"
+					dataProvider="{ callsDataProvider }" visible="{ Boolean(callsDataProvider.length) }">
+			
+			<s:columns>
+				<s:ArrayList>
+					<s:GridColumn dataField="Channel" headerText="Channel"/>
+					<s:GridColumn dataField="CallerIDNum" headerText="Caller ID"/>
+					<s:GridColumn dataField="CallerIDName" headerText="Caller Name"/>
+					<s:GridColumn dataField="Exten" headerText="Dialed"/>
+					<s:GridColumn dataField="SentPackets" headerText="TX Pckt"/>
+					<s:GridColumn dataField="SentOctets" headerText="TX Bytes"/>
+					<s:GridColumn dataField="PacketsLost" headerText="Pckt Loss"/>
+					<s:GridColumn dataField="CumulativeLoss" headerText="Total Loss"/>
+					<s:GridColumn dataField="RTT" headerText="RTT"/>
+					<s:GridColumn dataField="IAJitter" headerText="Jitter"/>
+					<s:GridColumn dataField="DateTime" headerText="Time"/>
+				</s:ArrayList>
+			</s:columns>
+			
+		</s:DataGrid>
+		
+		<s:Group id="emptyMsgBox" left="0" right="0" top="0" bottom="0" alpha=".7"
+				 visible.Base="{!itemsDataProvider.length}" includeInLayout.Base="{!itemsDataProvider.length}"
+				 visible.Calls="{!callsDataProvider.length}" includeInLayout.Calls="{!callsDataProvider.length}">
+			
+			<s:Rect left="0" right="0" top="0" bottom="0">
+				<s:fill>
+					<s:SolidColor color="0x000000" />
+				</s:fill>
+			</s:Rect>
+
+			<s:Label text="No items to show ..." color="0xffffff" verticalCenter="0" horizontalCenter="0" />
+		</s:Group>
+		
+	</s:BorderContainer>
+</s:View>

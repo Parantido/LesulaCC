@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark"
+		 width="{Math.max(23, badgeNumberDisplay.width + 10)}" height="35">
+	
+	<fx:Declarations>
+		
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			// Define Public Data
+			[Bindable] public var badgeText:String		= "0";
+			[Bindable] public var baseFontSize:Number	= 10;
+			[Bindable] public var badgeFontSize:Number	= 10;
+			[Bindable] public var badgeColor:uint		= 0xD60500;
+			[Bindable] public var badgeBorderColor:uint	= 0xFFFFFF;
+			[Bindable] public var badgeBorder:Boolean	= false;
+			[Bindable] public var srcImage:String		= "/assets/images/members.png";
+		]]>
+	</fx:Script>
+	
+	<s:Image id="baseImage" source="{ srcImage }"/>
+	
+	<s:Group height="23" scaleGridLeft="11" scaleGridRight="12" scaleGridBottom="12"
+			 width="{ Math.max(23, badgeNumberDisplay.width + 10) }" scaleGridTop="11"
+			 id="mainGroup" x="{ baseImage.width - (mainGroup.width / 2) }" y="-5">
+		
+		<s:filters>
+			<s:DropShadowFilter angle="90" blurX="4" blurY="4" alpha=".75" />
+		</s:filters>
+		
+		<s:Rect width="{Math.max(23, badgeNumberDisplay.width + 10)}" height="23" radiusX="11" radiusY="11"
+				visible="{ badgeBorder }">
+			<s:fill>
+				<s:SolidColor color="{ badgeBorderColor }"/>
+			</s:fill>
+		</s:Rect>
+		
+		<s:Rect left="2" y="2" right="2" height="19" radiusX="9" radiusY="9">
+			<s:fill>
+				<s:SolidColor id="bdgColor" color="{ badgeColor }"/>
+			</s:fill>
+		</s:Rect>
+		
+		<s:Rect left="2" y="2" right="2" height="19" radiusX="9" radiusY="9">
+			<s:fill>
+				<s:LinearGradient x="9.49121" y="18.9824" scaleX="18.9824" rotation="270">
+					<s:GradientEntry ratio="0" color="#FFFFFF" alpha="0"/>
+					<s:GradientEntry ratio="1" color="#FFFFFF" alpha="0.8"/>
+				</s:LinearGradient>
+			</s:fill>
+		</s:Rect>
+	
+	</s:Group>
+	
+	<s:RichText id="badgeNumberDisplay" x="{ baseImage.width - (badgeNumberDisplay.width / 2) }" y="0" text="{ badgeText }"
+				columnCount="1" tabStops="S36" fontSize="{ badgeFontSize }" kerning="on" color="#FFFFFF" whiteSpaceCollapse="preserve"/>
+	
+</s:Group>

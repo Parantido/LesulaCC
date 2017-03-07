@@ -1,0 +1,237 @@
+package org.techfusion.view.mediators {
+	
+	import flash.events.Event;
+	import flash.utils.Dictionary;
+	
+	import mx.collections.ArrayCollection;
+	import mx.utils.ObjectUtil;
+	
+	import org.puremvc.as3.interfaces.IMediator;
+	import org.puremvc.as3.interfaces.INotification;
+	import org.puremvc.as3.patterns.mediator.Mediator;
+	import org.techfusion.events.AsteriskEvent;
+	import org.techfusion.view.components.LeftQueuesView;
+	
+	public class LeftQueuesViewMediator extends Mediator implements IMediator {
+		
+		// Mediator Name
+		public static const NAME:String		= "LeftQueuesViewMediator";
+		
+		public function LeftQueuesViewMediator(viewComponent:Object = null) {
+			// Debug
+			trace("LeftQueuesViewMediator ==> Constructor");
+			
+			// Pass the viewComponent to the superclass where it will
+			// be stored in the inherited viewComponent property
+			super(NAME, viewComponent);
+		}
+		
+		private function get leftQueuesView():LeftQueuesView {
+			return viewComponent as LeftQueuesView;
+		}
+		
+		override public function listNotificationInterests():Array {
+			return [
+				ApplicationFacade.GET_QUEUES,
+				ApplicationFacade.QUEUE_PAR,
+				ApplicationFacade.QUEUE_SUM,
+				ApplicationFacade.QUEUE_MEM,
+				ApplicationFacade.QUEUE_MEMSTATUS,
+				ApplicationFacade.QUEUE_JOIN,
+				ApplicationFacade.QUEUE_LEAVE,
+				ApplicationFacade.DISCONNECT
+			];
+		}
+		
+		override public function handleNotification(notification:INotification):void {
+			switch (notification.getName()) {
+				case ApplicationFacade.GET_QUEUES:
+					handleGetQueues();
+					break;
+				case ApplicationFacade.QUEUE_PAR:
+					handleQueueParams(notification.getBody() as XML);
+					break;
+				case ApplicationFacade.QUEUE_SUM:
+					handleQueueSummary(notification.getBody() as XML);
+					break;
+				case ApplicationFacade.QUEUE_MEM:
+					handleQueueMemberEntry(notification.getBody() as XML);
+					break;
+				case ApplicationFacade.QUEUE_MEMSTATUS:
+					handleQueueMemberStatus(notification.getBody() as XML);
+					break;
+				case ApplicationFacade.QUEUE_JOIN:
+				case ApplicationFacade.QUEUE_LEAVE:
+					handleQueueJoinLeave(notification.getBody() as XML);
+					break;
+				case ApplicationFacade.DISCONNECT:
+					facade.removeMediator(NAME);
+					break;
+				default:
+					// trace("Left Queue ==> Unhandled: " + notification.getName() + "");
+					break;
+			}
+		}
+		
+		/**
+		 * Notify View Creation Event
+		 */
+		private function handleViewCreated(event:Event):void {
+			sendNotification(ApplicationFacade.QUEUE_VIEW_FNSHD, null, ApplicationFacade.QUEUE_VIEW_FNSHD);
+		}
+		
+		/**
+		 * Notify View Destruction Event
+		 */
+		private function handleViewRemoved(event:Event):void {
+			sendNotification(ApplicationFacade.QUEUE_VIEW_REMVD, null, ApplicationFacade.QUEUE_VIEW_REMVD);
+		}
+		
+		/**
+		 * Someone Request for a new Queues List
+		 * Refreshing Data Provider
+		 */
+		private function handleGetQueues():void {
+			// Setting Data Provder to Refres
+			leftQueuesView.queuesIndex 			= new Dictionary();
+			leftQueuesView.queuesDataProvider 	= new ArrayCollection();
+			
+			// Get Queues List on Startup
+			sendNotification(ApplicationFacade.ASTEVENT, null, AsteriskEvent.GETQUEUES);
+		}
+		
+		/**
+		 * Populate Left View Queue Data Provider
+		 */
+		private function handleQueueParams(astEvent:XML):void {
+			try {
+				if(!leftQueuesView.queuesIndex.hasOwnProperty(String(astEvent.Queue))) {
+					// Add Item to List Data Provider
+					leftQueuesView.queuesDataProvider.list.addItem(astEvent);
+					// Index Added Queues
+					leftQueuesView.queuesIndex[String(astEvent.Queue)] =
+						(leftQueuesView.queuesDataProvider.list.length - 1);
+				} else {
+					// Get Item from Data Provider
+					var object:XML = leftQueuesView.queuesDataProvider.list.getItemAt(
+						leftQueuesView.queuesIndex[String(astEvent.Queue)]
+					) as XML;
+					
+					// Import Needed Fields
+					astEvent.LoggedIn			= String(object.LoggedIn);
+					astEvent.Available			= String(object.Available);
+					astEvent.Callers			= String(object.Callers);
+					astEvent.HoldTime			= String(object.HoldTime);
+					astEvent.TalkTime			= String(object.TalkTime);
+					astEvent.LongestHoldTime	= String(object.LongestHoldTime);
+					
+					// Update DateTime Event
+					astEvent.DateTime			= String(object.DateTime);
+					
+					// Update Already Existent Item
+					leftQueuesView.queuesDataProvider.list.setItemAt(
+						astEvent,
+						leftQueuesView.queuesIndex[String(astEvent.Queue)]
+					);
+				}
+			} catch (e:Error) {
+				trace("LeftQueuesViewMediator ==> Handle Queue Params: " + e.getStackTrace());
+			}
+		}
+		
+		/**
+		 * Update an already existing Queue object with
+		 * number of logged agent information.
+		 */
+		private function handleQueueSummary(astEvent:XML):void {
+			try {
+				if(leftQueuesView.queuesIndex.hasOwnProperty(String(astEvent.Queue))) {
+					// Get Item from Data Provider
+					var object:XML = leftQueuesView.queuesDataProvider.list.getItemAt(
+						leftQueuesView.queuesIndex[String(astEvent.Queue)]
+					) as XML;
+					
+					// Add Needed Fields
+					object.LoggedIn			= String(astEvent.LoggedIn);
+					object.Available		= String(astEvent.Available);
+					object.Callers			= String(astEvent.Callers);
+					object.HoldTime			= String(astEvent.HoldTime);
+					object.TalkTime			= String(astEvent.TalkTime);
+					object.LongestHoldTime	= String(astEvent.LongestHoldTime);
+					
+					// Update Date Time Event
+					object.DateTime			= String(astEvent.DateTime);
+					
+					// Update DataProvider
+					leftQueuesView.queuesDataProvider.list.setItemAt(
+						object,
+						leftQueuesView.queuesIndex[String(astEvent.Queue)]
+					);
+				}
+			} catch (e:Error) {
+				trace("LeftQueuesViewMediator ==> Handle Queue Summary: " + e.getStackTrace());
+			}
+		}
+		
+		/**
+		 * Populating Queue Members Data Provider
+		 */
+		private function handleQueueMemberEntry(astEvent:XML):void {
+			try {
+				if(!leftQueuesView.queuesMemberIndex.hasOwnProperty(String(astEvent.Location))) {
+					// Add Member to List Data Provider
+					leftQueuesView.queuesMemberDataProvider.list.addItem(astEvent);
+					// Index Added Queue Member
+					leftQueuesView.queuesMemberIndex[String(astEvent.Location)] =
+						(leftQueuesView.queuesMemberDataProvider.list.length - 1);
+				} else {
+					// Update Already Existent Member
+					leftQueuesView.queuesMemberDataProvider.list.setItemAt(
+						astEvent,
+						leftQueuesView.queuesMemberIndex[String(astEvent.Location)]
+					);
+				}
+			} catch (e:Error) {
+				trace("LeftQueuesViewMediator ==> Handle Queue Member Entry: " + e.getStackTrace());
+			}
+		}
+		
+		private function handleQueueMemberStatus(astEvent:XML):void {
+			try {
+				sendNotification(ApplicationFacade.ASTEVENT, String(astEvent.Queue), ApplicationFacade.GET_QUEUE_STATUS);
+				sendNotification(ApplicationFacade.ASTEVENT, String(astEvent.Queue), ApplicationFacade.GET_QUEUE_SUMMAR);
+			} catch (e:Error) {
+				trace("LeftQueuesViewMediator ==> Handle Queue Member Status: " + e.getStackTrace());
+			}
+		}
+		
+		private function handleQueueJoinLeave(astEvent:XML):void {
+			try {
+				sendNotification(ApplicationFacade.ASTEVENT, String(astEvent.Queue), ApplicationFacade.GET_QUEUE_SUMMAR);
+			} catch (e:Error) {
+				trace("LeftQueuesViewMediator ==> Handle Queue Member Status: " + e.getStackTrace());
+			}
+		}
+		
+		override public function onRegister():void {
+			// Add Event Listener
+			leftQueuesView.addEventListener(ApplicationFacade.CREATE, handleViewCreated);
+			leftQueuesView.addEventListener(ApplicationFacade.DESTROY, handleViewRemoved);
+			leftQueuesView.addEventListener(ApplicationFacade.GET_QUEUES, handleGetQueues);
+
+			// Debug
+			trace("LeftQueuesViewMediator ==> LeftQueuesViewMediator Registered");
+		}
+		
+		override public function onRemove():void {
+			// Remove Event Listener
+			leftQueuesView.removeEventListener(ApplicationFacade.GET_QUEUES, handleGetQueues);
+			leftQueuesView.removeEventListener(ApplicationFacade.DESTROY, handleViewRemoved);
+			leftQueuesView.removeEventListener(ApplicationFacade.CREATE, handleViewCreated);
+			
+			// Debug
+			trace("LeftQueuesViewMediator ==> LeftQueuesViewMediator Unregistered");
+		}
+		
+	}
+}

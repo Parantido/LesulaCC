@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:fx="http://ns.adobe.com/mxml/2009"
+		xmlns:s="library://ns.adobe.com/flex/spark"	
+		actionBarVisible="false" overlayControls="false" tabBarVisible="true"
+		viewActivate="{ viewActivate(); }" viewDeactivate="{ viewDeactivate(); }" xmlns:components="org.techfusion.view.components.*">
+	
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+
+	<fx:Script>
+		<![CDATA[
+			import org.puremvc.as3.patterns.facade.Facade;
+			import org.techfusion.view.mediators.MainViewMediator;
+			
+			// Retrieve Facade Instance
+			private var facade:Facade = ApplicationFacade.getInstance();
+			
+			private function viewActivate(): void {
+				// Registering Mediators
+				if(!facade.hasMediator(MainViewMediator.NAME)) {
+					facade.registerMediator(new MainViewMediator(this));
+				}
+				
+				// Show Banner Container if Trial App
+				if(ApplicationFacade.APPTYPE) {
+					mainAdContainer.includeInLayout = true;
+					mainAdContainer.visible = true;
+					mainAdContainer.viewActivate();
+				}
+			}
+			
+			private function viewDeactivate(): void {
+				// Registering Mediators
+				if(facade.hasMediator(MainViewMediator.NAME)) {
+					facade.removeMediator(MainViewMediator.NAME);
+				}
+				
+				if(ApplicationFacade.APPTYPE) {
+					mainAdContainer.viewDeactivate();
+				}
+			}
+		]]>
+	</fx:Script>
+	
+	<s:Group width="100%" height="100%">
+		
+		<s:layout>
+			<s:HorizontalLayout verticalAlign="middle" horizontalAlign="center" gap="2"/>
+		</s:layout>
+		
+		<components:AdManagerView width="100" height="100%" id="mainAdContainer" visible="false" includeInLayout="false"/>
+	
+		<s:TabbedViewNavigator id="mainApplicationTabbedView" width="100%" height="100%">
+			<s:ViewNavigator width="100%" height="100%" firstView="org.techfusion.view.components.PeersView"    icon="@Embed('/assets/images/extensions.png')" label="Extensions"/>
+			<s:ViewNavigator width="100%" height="100%" firstView="org.techfusion.view.components.QueuesView"   icon="@Embed('/assets/images/queues.png')"     label="Queues"/>
+			<s:ViewNavigator width="100%" height="100%" firstView="org.techfusion.view.components.DebuggerView" icon="@Embed('/assets/images/debugger.png')"   label="Debugger"/>
+		</s:TabbedViewNavigator>
+			
+	</s:Group>
+	
+</s:View>

@@ -1,0 +1,487 @@
+package org.techfusion.model.proxies {
+	
+	// Import Flash Classes
+	import flash.events.Event;
+	import flash.events.IOErrorEvent;
+	import flash.events.ProgressEvent;
+	import flash.events.SecurityErrorEvent;
+	import flash.net.Socket;
+	import flash.utils.Dictionary;
+	
+	import mx.collections.ArrayCollection;
+	import mx.formatters.DateFormatter;
+	import mx.utils.StringUtil;
+	
+	import org.puremvc.as3.interfaces.IProxy;
+	import org.puremvc.as3.patterns.proxy.Proxy;
+	
+	public class AsteriskManagerInterfaceProxy extends Proxy implements IProxy {
+		
+		// Event Date/Time Format String
+		public var _formatString:String = "DD/MM/YYYY JJ:NN:SS"; 
+		private var _dF:DateFormatter = new DateFormatter();
+		
+		// Host/Port Defaults		
+		private var _host:String		= "127.0.0.1";
+		private var _port:int			= 5038;
+		
+		// TCP/IP Raw Data Structure
+		private var _socket:Socket;
+		private var _status:Boolean;
+		
+		// Asterisk config
+		private var contextIndex:Dictionary = new Dictionary();
+		private var contextDataProvider:ArrayCollection = new ArrayCollection();
+		
+		// Internal PureMVC Defines
+		public static const NAME:String = "AsteriskTopologyProxy";
+		
+		// Proxy Registration
+		public function AsteriskManagerInterfaceProxy(data:Object = null) {
+			// Register Proxy
+			super(NAME, data);
+			
+			// Initialize Proxy Object
+			proxySetup();
+		}
+		
+		// Proxy Initialization
+		private final function proxySetup():void {
+			// Define a new Socket
+			_socket = new Socket();
+			
+			// Init Date Formatter
+			_dF.formatString = _formatString;
+			
+			// Attach Socket Event Listener
+			_socket.addEventListener(Event.CLOSE, _closeHandler);
+			_socket.addEventListener(Event.CONNECT, _connectHandler);
+			_socket.addEventListener(IOErrorEvent.IO_ERROR, _ioErrorHandler);
+			_socket.addEventListener(SecurityErrorEvent.SECURITY_ERROR, _securityErrorHandler);
+			_socket.addEventListener(ProgressEvent.SOCKET_DATA, _socketDataHandler);	
+		}
+		
+		public final function doConnect(srvip:String):void {
+			// Check For Host Length	
+			if(srvip.length > 0) {
+				_host = srvip;
+			}
+			
+			// Define actual Connection Status
+			_status = true;
+			
+			try {
+				// Do Connection
+				_socket.connect(_host, _port);
+				
+			} catch (error:Error) {
+				// Debug
+				trace("AsteriskTopologyProxy ==> Unable to Connected (" + error.message + ")");
+				
+				// Dispatch Notification
+				sendNotification(ApplicationFacade.CONNERROR);
+				
+				// Define actual Connection Status
+				_status = false;
+				
+				// Close Socket if Needed
+				_socket.close();
+			}
+		}
+		
+		private final function _closeHandler(evt:Event):void {
+			trace("AsteriskTopologyProxy ==> Connection Closed by Remote Host!");
+			
+			// Dispatch Notification
+			sendNotification(ApplicationFacade.CLOSED);
+			sendNotification(ApplicationFacade.DISCONNECT);
+			
+			// Define actual Connection Status
+			_status = false;
+		}
+		
+		private final function _connectHandler(e:Event):void {
+			trace("AsteriskTopologyProxy ==> Successfully Connected! ");
+			
+			// Dispatch Notification
+			sendNotification(ApplicationFacade.CONNECTED);
+			
+			// Define actual Connection Status
+			_status = true;
+		}
+		
+		private final function _ioErrorHandler(e:IOErrorEvent):void {
+			trace("AsteriskTopologyProxy ==> Network IO Error! " + e.text);
+			
+			// Dispatch Notification
+			sendNotification(ApplicationFacade.IOERROR, e.text);
+		}
+		
+		private final function _securityErrorHandler(e:SecurityErrorEvent):void {
+			trace("AsteriskTopologyProxy ==> Sysec Handler!");
+			
+			// Dispatch Notification
+			sendNotification(ApplicationFacade.SECERROR, e.text);
+		}
+		
+		/**
+		 * Store Needed Dialplan Entries
+		 */
+		private final function handleDialplanEntry(astEvent:XML):void {
+			// Store Dialplan Needed Parameters
+			if(!contextIndex[String(astEvent.Context)]) {
+				// Add Item to List Data Provider
+				contextDataProvider.list.addItem(new XML(astEvent.toString()));
+				// Adding Item DataProvider Position to Dictionary
+				contextIndex[String(astEvent.Context)] = contextDataProvider.list.length;
+				// Refresh Data Provider
+				contextDataProvider.refresh();
+			}
+		}
+		
+		private final function _socketDataHandler(event:ProgressEvent):void {
+			
+			// Needed Buffering and Character Control Vars
+			var counter:int = 0;
+			var buf:String = new String();
+			var netbuf:String = new String();
+			
+			// Get Socket Data
+			try {
+				while (_socket.bytesAvailable > 0) {
+					// Get character at Time
+					netbuf = _socket.readUTFBytes(1);
+					
+					if(netbuf == '=' || netbuf == '<' || netbuf == '>') {
+						/* Do Nothing */
+					} else if ((netbuf == '\r') || (netbuf == '\n')) {						
+						if(buf.length > 0) {
+							if(counter == 3) {
+								// Processing received Event
+								triggerEvent(buf);
+								
+								// Flush Out Buffers
+								buf = "";
+								netbuf = "";
+								
+								// Reset Counter
+								counter = 0;
+							} else {
+								// Add a new line to the end of buffer (to differentiate lines)
+								if(netbuf == '\r') {
+									buf = buf + "\n";
+								}
+								
+								// Increment Counter
+								counter++;
+							}
+						}
+					} else {
+						// Concat character at time in a single string
+						buf = buf + "" + netbuf;
+						
+						// Reset Counter
+						counter = 0;
+					}
+				}
+			} catch(err:Error) {
+				// Enable this debug to show unhandled AMI Events
+				trace("AsteriskTopologyProxy ==> RX Error:\n" + buf + "Error: " + err.toString() + "\n");
+				
+				// Dispatch Notification
+				sendNotification(ApplicationFacade.RXERROR, err);
+			}
+		}
+		
+		// Parse Event and Send it as Notification
+		private final function triggerEvent(line:String):void {
+			
+			// Split message in separate lines
+			var lines:Array = line.split("\n");
+			
+			// Begin XML Child Content
+			var xmlChild:String = "<member>\n";
+			
+			for(var i:uint = 0; i < lines.length; i++) {
+				if(lines[i].toString().length > 0) {
+					
+					// Get Key/Value Couple
+					var kv:Array = lines[i].toString().split(/:\ /);
+					
+					// Check for well formed AMI Event
+					if((kv.length > 1) && (String(kv[0]).length && String(kv[1]).length)) {
+						// Purge Values
+						kv[0] = StringUtil.trim(kv[0].toString());
+						kv[1] = StringUtil.trim(kv[1].toString());
+						
+						// Populate XML Child
+						xmlChild = xmlChild + "<" +kv[0]+ ">" +kv[1]+ "</" +kv[0]+ ">\n";
+					}
+				}
+			}
+			
+			// Attach Local Date/Time
+			xmlChild = xmlChild + "<DateTime>" + _dF.format(new Date()).toString() + "</DateTime>";
+			
+			// Close XML Child Content
+			xmlChild = xmlChild + "</member>\n";
+			
+			// Debug on parsed Events
+			// trace("\nString Incoming Event ===>\n" + xmlChild + "\n<================ \n");
+			
+			// Convert to XML Object
+			try {
+				var xmlEvent:XML = XML(xmlChild);
+			} catch (e:Event) {
+				trace("AsteriskManagerInterfaceProxy: Unable to convert string to XML (" + e.toString() + ") !!!");
+			}
+			
+			// Debug on parsed Events
+			// trace("\nXML Incoming Event ===>\n" + xmlEvent.toString() + "\n<================ \n");
+			
+			// Locally Store Dialplan related Events
+			if(String(xmlEvent.child("Event")).toLowerCase() == ApplicationFacade.DIAL_ENTRY) {
+				handleDialplanEntry(xmlEvent);
+			} else {
+				// Dispatch Notification
+				sendNotification(ApplicationFacade.ONMESSAGE, xmlEvent);
+			}
+		}
+		
+		// Return Socket Connection Status
+		public final function isConnected():Boolean {
+			if(this._status && this._socket) 
+				return(true);
+			else
+				return(false);
+		}
+		
+		// Exec Socket disconnection
+		public final function doDisconnect():void {
+			if (isConnected()) {
+				// Close Socket
+				_socket.close();
+				
+				// Define actual Connection Status
+				_status = false;
+			}
+		}
+		
+		// Sending Socket Message
+		private final function sendMessage(s:String):Boolean {
+			if (this.isConnected()) {
+				// Debug on parsed Events
+				// trace("\nOutgoing Event ===>\n" + s + "\n<================ \n");
+				
+				// Send UTF Message
+				_socket.writeUTFBytes(s);
+				_socket.flush();
+				
+				// Return True
+				return true;
+			} else {
+				// Dispatch Notification
+				sendNotification(ApplicationFacade.TXERROR);
+			}
+			
+			// Return False
+			return false;
+		}
+		
+		//************************************//>
+		//*
+		//* ASTERISK RELATED METHOD
+		//*
+		//************************************//>
+		
+		// Asterisk Manager Command Login
+		public final function manLogin(username:String, password:String, events:String):Boolean {
+			if (isConnected()) {
+				var message:String = "Action: login\r\nUsername: " +username+ "\r\nSecret: " +password+ "\r\nEvents: " +events+ "\r\n\r\n";
+				
+				if(sendMessage(message)) {
+					return(true);
+				}
+			}
+			
+			return(false);
+		}
+		
+		// Asterisk Manager Command Logout
+		public final function manLogOff():Boolean {
+			if (isConnected()) {
+				var message:String = "Action: logoff\r\n\r\n";
+				
+				if(sendMessage(message)) {
+					return(true);
+				}
+			}
+			
+			return(false);
+		}
+		
+		// Asterisk Manager Config Query
+		public final function getConfig():Boolean {
+			if (isConnected()) {
+				var message:String = "Action: SIPpeers\r\n\r\n"		+
+					"Action: IAXpeers\r\n\r\n" 	+
+					"Action: Parkinglots\r\n\r\n"	+
+					"Action: ShowDialPlan\r\n\r\n"	;
+				
+				if(sendMessage(message)) {
+					return(true);
+				}
+			}			
+			
+			return(false);
+		}
+		
+		// Asterisk Manager Park Query
+		public final function doInitialConfigRequest():Boolean {
+			if (isConnected()) {
+				var message:String = 
+					"Action: UpdateConfig\r\n" + 
+					"SrcFilename: extensions.conf\r\n" +
+					"DstFilename: extensions.conf\r\n" +
+					"Reload: yes\r\n" +
+					"Action-000000: DelCat\r\n" +
+					"Cat-000000: LesulaCC-121180\r\n\r\n" +
+					"Action: UpdateConfig\r\n" + 
+					"SrcFilename: extensions.conf\r\n" +
+					"DstFilename: extensions.conf\r\n" +
+					"Reload: yes\r\n" +
+					"Action-000000: NewCat\r\n" +
+					"Cat-000000: LesulaCC-121180\r\n" +
+					"Action-000001: append\r\n" +
+					"Var-000001: exten\r\n" +
+					"Value-000001: hold,1,Set(CHANNEL(musicclass)=default)\r\n" +
+					"Cat-000001: LesulaCC-121180\r\n" +
+					"Action-000002: append\r\n" +
+					"Var-000002: exten\r\n" +
+					"Value-000002: hold,n,StartMusicOnHold()\r\n" +
+					"Cat-000002: LesulaCC-121180\r\n" +
+					"Action-000003: append\r\n" +
+					"Var-000003: exten\r\n" +
+					"Value-000003: park,1,Park()\r\n" +
+					"Cat-000003: LesulaCC-121180\r\n" +
+					"\r\n";
+				
+				/*if(sendMessage(message)) {
+					return(true);
+				}*/return(true);
+			}			
+			
+			return(false);
+		}
+		
+		// Asterisk Manager Queues Summary Query
+		public final function getQueues():Boolean {
+			if (isConnected()) {
+				var message:String = "Action: QueueStatus\r\n\r\nAction: QueueSummary\r\n\r\n";
+				
+				if(sendMessage(message)) {
+					return(true);
+				}
+			}			
+			
+			return(false);
+		}
+		
+		// Asterisk Manager Explicit Queue Status
+		public final function getQueueStatus(queue:String):Boolean {
+			if (isConnected()) {
+				var message:String = "Action: QueueStatus\r\n" +
+									 "Queue: " + queue + "\r\n\r\n";
+				
+				if(sendMessage(message)) {
+					return(true);
+				}
+			}			
+			
+			return(false);
+		}
+		
+		// Asterisk Manager Explicit Queue Summary
+		public final function getQueueSummary(queue:String):Boolean {
+			if (isConnected()) {
+				var message:String = "Action: QueueSummary\r\n" +
+					"Queue: " + queue + "\r\n\r\n";
+				
+				if(sendMessage(message)) {
+					return(true);
+				}
+			}			
+			
+			return(false);
+		}
+		
+		// Asterisk Manager Hantup Query
+		public final function chanHangup(chanName:String):Boolean {
+			if (isConnected()) {
+				var message:String = "Action: Hangup\r\n" +
+					"Channel: "   + chanName + "\r\n\r\n";
+				
+				if(sendMessage(message)) {
+					return(true);
+				}
+			}			
+			
+			return(false);
+		}
+		
+		// Asterisk Manager Park Query
+		public final function chanPark(chanName:String, chanReturnName:String):Boolean {
+			if (isConnected()) {
+				var message:String = 
+					"Action: Park\r\n" +
+					"Channel:  " + chanName	+ "\r\n" +
+					"Channel2: " + chanName	+ "\r\n\r\n";
+				
+				if(sendMessage(message)) {
+					return(true);
+				}
+			}			
+			
+			return(false);
+		}
+		
+		public final function chanRedirect(chanName:String, extensionName:String, contextName:String):Boolean {
+			if (isConnected()) {
+				var message:String =
+					"Action: Redirect\r\n"		+
+					"Channel: "	+ chanName		+ "\r\n" +
+					"Exten: "	+ extensionName	+ "\r\n" +
+					"Context: "	+ contextName	+ "\r\n" +
+					"Priority: 1\r\n\r\n";
+				
+				if(sendMessage(message)) {
+					return(true);
+				}
+			}			
+			
+			return(false);
+		}
+		
+		public final function ping():Boolean {
+			if (isConnected()) {
+				var message:String = "Action: Ping\r\n\r\n";
+				
+				if(sendMessage(message)) {
+					return(true);
+				}
+			}			
+			
+			return(false);
+		}
+		
+		// Return Context Data Provider
+		public final function getContextes():void {
+			sendNotification(ApplicationFacade.CTXS, contextDataProvider);
+		}
+		
+		// Return Context Index Dictionary
+		public final function getContextIndexes():void {
+			sendNotification(ApplicationFacade.CTXIDXS, contextIndex);
+		}
+	}
+}

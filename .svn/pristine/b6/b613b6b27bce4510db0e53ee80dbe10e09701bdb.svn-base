@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009"
+		 xmlns:s="library://ns.adobe.com/flex/spark"
+		 creationComplete="key_initializeHandler(event)">
+	
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import mx.events.FlexEvent;
+			
+			import org.virtualkeyboard.events.VirtualKeyboardEvent;
+			
+			[Bindable] public var fontSize:int			= 22;
+			[Bindable] public var keyText:String		= "0";
+			[Bindable] public var isImage:Boolean		= false;
+			[Bindable] public var keyColor:uint			= 0xFFFFFF;
+			[Bindable] public var underLineColor:uint	= 0xCCCCCC;
+			[Bindable] public var imageSource:Object	= "@Embed('../images/backspace.png')";
+			
+			/**
+			 * Initialize Key
+			 */
+			protected function key_initializeHandler(event:FlexEvent):void {
+				fontSize = (mainGrp.height / 2);
+				trace("Setting Key Font Size to: " + fontSize);
+			}
+			
+			/**
+			 * Dispatch Key Click Event
+			 */
+			protected function key_clickHandler(event:MouseEvent):void {
+				dispatchEvent(new VirtualKeyboardEvent(VirtualKeyboardEvent.KEY_CLICKED, key.text));
+			}
+			
+			/**
+			 * Key Press Effect
+			 */
+			private function onPress_Handle(event:Event, type:Boolean):void {
+				if(type) {
+					fontSize = fontSize * 2;
+					underStroke.color = 0x4169E1;
+				} else {
+					fontSize = fontSize / 2;
+					underStroke.color = underLineColor;
+				}
+			}
+		]]>
+	</fx:Script>
+	
+	<s:VGroup id="mainGrp" touchEnd="{ onPress_Handle(event, false); }" mouseUp="{ onPress_Handle(event, false); }"
+			  horizontalAlign="center" verticalAlign="middle" buttonMode="true" click="{ key_clickHandler(event); }"
+			  left="0" top="0" right="0" bottom="0" touchTap="{ onPress_Handle(event, true); }" mouseDown="{ onPress_Handle(event, true); }">
+		<s:Label text="{ keyText }" color="{ keyColor }" textAlign="center" id="key" width="100%" height="100%"
+				 visible="{!isImage}" includeInLayout="{!isImage}" fontSize="{ fontSize }"/>
+		<s:Image id="btnDelete" source="{ imageSource }" scaleMode="letterbox" visible="{isImage}"
+				 includeInLayout="{isImage}" smooth="true" smoothingQuality="default"
+				 height="100%"/>
+		<s:Line width="99%">
+			<s:stroke>
+				<s:SolidColorStroke id="underStroke" color="{ underLineColor }" caps="round" weight="2" alpha="0.6"/>
+			</s:stroke>
+		</s:Line>
+	</s:VGroup>
+	
+</s:Group>

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Skin xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		xmlns:s="library://ns.adobe.com/flex/spark">
+	
+	<!-- host component -->
+	<fx:Metadata>
+		[HostComponent("spark.components.CalloutButton")]
+	</fx:Metadata>
+	
+	<!-- states -->
+	<s:states>
+		<s:State name="disabled" />
+		<s:State name="down" />
+		<s:State name="over" />
+		<s:State name="up" />
+	</s:states>
+	
+	<s:BitmapImage id="icon" smooth="true" smoothingQuality="default"
+				   height="{hostComponent.getStyle('iconHeight')}"
+				   width="{hostComponent.getStyle('iconWidth')}"
+				   alpha="{(this.currentState == 'up')?.5:1}"
+				   source="{hostComponent.getStyle('icon')}"
+				   verticalCenter="0"/>
+	
+	<s:Label visible="{( hostComponent.label != '' )}" maxWidth="{ hostComponent.width - 5 }"
+			 horizontalCenter="5" includeInLayout="{( hostComponent.label != '' )}"
+			 maxDisplayedLines="1" text="{hostComponent.label}" verticalCenter="0"
+			 width="100%" textAlign="center" paddingLeft="5" paddingRight="5"/>
+	
+	<s:Image source="@Embed('/assets/images/peer_bg.png')" />
+	
+</s:Skin>

@@ -1,0 +1,141 @@
+package org.techfusion.view.mediators {
+	
+	// Import default mx Classes
+	import mx.events.FlexEvent;
+	
+	import org.puremvc.as3.interfaces.IMediator;
+	import org.puremvc.as3.interfaces.INotification;
+	import org.puremvc.as3.patterns.mediator.Mediator;
+	import org.techfusion.controller.AsteriskCommand;
+	import org.techfusion.controller.DisconnectCommand;
+	import org.techfusion.controller.OnMessageCommand;
+	import org.techfusion.events.AsteriskEvent;
+	import org.techfusion.events.LoginViewEvent;
+	import org.techfusion.view.components.MainView;
+	
+	public class MainViewMediator extends Mediator implements IMediator {
+		
+		public static const NAME:String		= "MainMediator";
+		
+		public function MainViewMediator(viewComponent:Object = null) {
+			// Debug
+			trace(NAME + " ==> Constructor");
+			
+			// Pass the viewComponent to the superclass where it will be stored in the inherited viewComponent property
+			super(NAME, viewComponent);
+			
+			// Initialize View
+			initializeView();
+			
+			// Add Object Event Listener
+			//mainView.addEventListener(LoginViewEvent.DISCONNECT, onDisconnectClick);
+			mainView.mainApplicationTabbedView.addEventListener(FlexEvent.VALUE_COMMIT, doingRequests);
+			
+			// Do Main Tab First Query
+			sendNotification(ApplicationFacade.ASTEVENT, null, AsteriskEvent.GETPEERS);
+		}
+		
+		private function get mainView():MainView {
+			return viewComponent as MainView;
+		}
+		
+		
+		// Send Notification OnDisconnect Click
+		//private function onDisconnectClick(loginViewEvent:LoginViewEvent):void {
+		//	// Sending Disconnect Notification
+		//	sendNotification(ApplicationFacade.DISCONNECT, loginViewEvent);
+		//}
+		
+		override public function listNotificationInterests():Array {
+			return [
+				ApplicationFacade.DISCONNECT,
+				ApplicationFacade.CLOSED
+			];
+		}
+		
+		override public function handleNotification(notification:INotification):void {
+			switch (notification.getName()) {
+				case ApplicationFacade.DISCONNECT:
+				case ApplicationFacade.CLOSED:
+					// Back to Login View
+					mainView.navigator.popToFirstView();
+					break;
+				default:
+					break;
+			}
+		}
+		
+		/**
+		 * Execute Action Based on Selected Tabs
+		 */
+		private function doingRequests(evt:FlexEvent):void {
+			switch(mainView.mainApplicationTabbedView.selectedIndex) {
+				// Main Peers Tab
+				case 0:
+					// Request For Peers (SIP/IAX) List
+					sendNotification(ApplicationFacade.ASTEVENT, null, AsteriskEvent.GETPEERS);
+				break;
+				
+				// Queues Tab
+				case 1:
+					// Request For Queues List
+					// sendNotification(ApplicationFacade.ASTEVENT, null, AsteriskEvent.GETQUEUES);
+				break;
+			}
+		}
+		
+		override public function onRegister():void {
+			// Initialize View if Needed
+			initializeView();
+			
+			// Sending Initial Configuration Notification
+			sendNotification(ApplicationFacade.ASTEVENT, null, AsteriskEvent.DOCONF);
+			
+			// Debug
+			trace(NAME + " ==> MainViewMediator Registered");
+		}
+		
+		private function initializeView():void {
+			// Register Commands
+			if(!facade.hasCommand(ApplicationFacade.ASTEVENT)) {
+				facade.registerCommand(ApplicationFacade.ASTEVENT, AsteriskCommand);
+			}
+			
+			if(!facade.hasCommand(ApplicationFacade.DISCONNECT)) {
+				facade.registerCommand(ApplicationFacade.DISCONNECT, DisconnectCommand);
+			}
+			
+			if(!facade.hasCommand(ApplicationFacade.ONMESSAGE)) {
+				facade.registerCommand(ApplicationFacade.ONMESSAGE, OnMessageCommand);
+			}
+		}
+		
+		override public function onRemove():void {
+			// Deinitialize View if Needed
+			deinitializeView();
+			
+			// Debug
+			trace(NAME + " ==> MainViewMediator Unregistered");
+		}
+		
+		private function deinitializeView():void {
+			// Unregister Mediators If Present
+			//if(facade.hasMediator(PeersViewMediator.NAME)) {
+			//	facade.removeMediator(PeersViewMediator.NAME);
+			//}
+			
+			// UnRegister Commands
+			if(facade.hasCommand(ApplicationFacade.DISCONNECT)) {
+				facade.removeCommand(ApplicationFacade.DISCONNECT);
+			}
+			
+			if(facade.hasCommand(ApplicationFacade.ASTEVENT)) {
+				facade.removeCommand(ApplicationFacade.ASTEVENT);
+			}
+			
+			if(facade.hasCommand(ApplicationFacade.ONMESSAGE)) {
+				facade.removeCommand(ApplicationFacade.ONMESSAGE);
+			}
+		}
+	}
+}

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:ItemRenderer xmlns:fx="http://ns.adobe.com/mxml/2009" 
+				xmlns:s="library://ns.adobe.com/flex/spark"
+				dataChange="{ updateMe(); }" width="200" height="200"
+				autoDrawBackground="false" xmlns:components="org.techfusion.view.components.*">
+	
+	<fx:Declarations>
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			protected function updateMe():void {
+				if(data) {
+					// Handle Dummy Session
+					if(String(data.username).length > 0 && String(data.server).length > 0)
+						sessionLabel.text = data.username + "@" + data.server;
+					else
+						sessionLabel.text = "Empty";
+				}
+			}
+		]]>
+	</fx:Script>
+	
+	<s:Group top="1" left="1" right="1" bottom="1">
+		<s:layout>
+			<s:VerticalLayout verticalAlign="middle" horizontalAlign="center"/>
+		</s:layout>
+		
+		<s:Image id="sessionImage" source="@Embed('/assets/images/avatar.png')"
+				 width="100" height="100" smooth="true" smoothingQuality="default"/>
+		
+		<s:Label id="sessionLabel" text="Default Session" fontSize="13" 
+				 maxDisplayedLines="1" fontWeight="normal"/>
+	</s:Group>
+	
+</s:ItemRenderer>

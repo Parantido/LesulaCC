@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:SparkSkin xmlns:fx="http://ns.adobe.com/mxml/2009"
+			 xmlns:s="library://ns.adobe.com/flex/spark"
+			 xmlns:fb="http://ns.adobe.com/flashbuilder/2009"
+			 alpha.disabled="0.5" alpha.disabledAndSelected="0.5" name="CustomCheckBoxSkin">
+	
+	<fx:Metadata>
+		[HostComponent("spark.components.CheckBox")]
+	</fx:Metadata> 
+	
+	<!-- states -->
+	<s:states>
+		<s:State name="up"  stateGroups="unchecked" />
+		<s:State name="over" stateGroups="overStates, unchecked" />
+		<s:State name="down" stateGroups="downStates, unchecked" />
+		<s:State name="disabled" stateGroups="disabledStates, unchecked" />
+		<s:State name="upAndSelected" stateGroups="selectedStates, checked" />
+		<s:State name="overAndSelected" stateGroups="overStates, selectedStates, checked" />
+		<s:State name="downAndSelected" stateGroups="downStates, selectedStates, checked" />
+		<s:State name="disabledAndSelected" stateGroups="disabledStates, selectedStates, checked" />
+	</s:states>
+	
+	<!-- Easer / Just for Fun! -->
+	<fx:Declarations>
+		<s:Linear id="swapEaser" easeInFraction="0.5"  easeOutFraction="0.5" />
+	</fx:Declarations>
+	
+	<!-- Transition on easer / Always for Fun! -->
+	<s:transitions>
+		<s:Transition  fromState="unchecked"  toState="overAndSelected" >
+			<s:Parallel target="{chkImage}" >
+				<s:Scale duration="250" scaleXBy="1"   easer="{swapEaser}" />
+			</s:Parallel>
+		</s:Transition>
+		<s:Transition fromState="checked" toState="over" >
+			<s:Parallel target="{chkImage}">
+				<s:Scale duration="250" easer="{swapEaser}" />
+			</s:Parallel>
+		</s:Transition>
+	</s:transitions>
+	
+	<fx:Script fb:purpose="styling">
+		<![CDATA[
+			import spark.components.CheckBox;
+			
+			import avmplus.getQualifiedClassName;
+			/* Define the skin elements that should not be colorized. 
+			For button, the graphics are colorized but the label is not. */
+			static private const exclusions:Array = ["labelDisplay"];
+			private static const focusExclusions:Array = ["labelDisplay"];
+			
+			/* Define the symbol fill items that should be colored by the "symbolColor" style. */
+			static private const symbols:Array = [];
+			
+			override public function get colorizeExclusions():Array {
+				return exclusions;
+			}
+			
+			override public function get symbolItems():Array {
+				return symbols;
+			}
+			
+			override protected function initializationComplete():void {
+				useChromeColor = true;
+				super.initializationComplete();
+			}
+			
+			override public function get focusSkinExclusions():Array {
+				return focusExclusions;
+			}
+		]]>
+	</fx:Script>
+	
+	<s:Group verticalCenter="0" width="36" height="36">
+		<s:BitmapImage id="chkImage"
+					   verticalCenter="0" horizontalCenter="0"
+					   smoothingQuality="default" smooth="true"
+					   source="@Embed('/assets/images/bookmark.png')"
+					   source.up="@Embed('/assets/images/bookmark.png')"
+					   source.down="@Embed('/assets/images/bookmark.png')"
+					   source.disabled="@Embed('/assets/images/warning.png')"
+					   source.upAndSelected="@Embed('/assets/images/bookmarked.png')"
+					   source.downAndSelected="@Embed('/assets/images/bookmarked.png')"
+					   source.overAndSelected="@Embed('/assets/images/bookmarked.png')"
+					   source.disabledAndSelected="@Embed('/assets/images/bookmarked.png')"/>
+	</s:Group>
+	
+	<!-- Label -->
+	<s:Label id="labelDisplay" textAlign="start" verticalAlign="middle" text.upAndSelected="Delete Credentials" fontSize="16"
+			 text.downAndSelected="Store Credentials" text.overAndSelected="Store Credentials" text.up="Store Credentials"
+			 text="Delete Credentials" text.disabled="Fill Form" text.disabledAndSelected="Fill Form"
+			 maxDisplayedLines="1" left="40" right="0" top="3" bottom="3" verticalCenter="0"/>
+	
+</s:SparkSkin>

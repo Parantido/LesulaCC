@@ -1,0 +1,335 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		xmlns:s="library://ns.adobe.com/flex/spark"
+		actionBarVisible="true" dataChange="{ viewUpdate(); }"
+		viewActivate="{ viewActivate(); }" viewDeactivate="{ viewDeactivate(); }"
+		xmlns:mx="library://ns.adobe.com/flex/mx" xmlns:classed="org.techfusion.view.components.classed.*" xmlns:controls="com.flexcapacitor.controls.*">
+	
+	<s:states>
+		<s:State name="Calls"/>
+		<s:State name="Stats"/>
+	</s:states>
+	
+	<fx:Declarations>
+		<s:RadioButtonGroup id="searchType"/>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import mx.charts.chartClasses.Series;
+			import mx.charts.series.BarSeries;
+			import mx.collections.ArrayCollection;
+			import mx.utils.StringUtil;
+			
+			import org.puremvc.as3.patterns.facade.Facade;
+			import org.techfusion.view.mediators.RightQueuesViewMediator;
+			
+			[Bindable] public  var callsIndex:Dictionary = new Dictionary();
+			[Bindable] public  var queuesIndex:Dictionary = new Dictionary();
+			[Bindable] public  var queuesMemberIndex:Dictionary = new Dictionary();
+			[Bindable] public  var callsDataProvider:ArrayCollection = new ArrayCollection();
+			[Bindable] public  var queuesDataProvider:ArrayCollection = new ArrayCollection();
+			[Bindable] public  var queuesMemberDataProvider:ArrayCollection = new ArrayCollection();
+
+			// Retrieve Facade Instance
+			private var facade:Facade = ApplicationFacade.getInstance();
+			
+			// Track Left View Status
+			private var leftViewStatus:String = "Queues";
+			
+			protected function viewActivate():void {
+				// Registering Mediators
+				if(!facade.hasMediator(RightQueuesViewMediator.NAME)) {
+					facade.registerMediator(new RightQueuesViewMediator(this));
+					
+					// Dispatch Initialization Events
+					dispatchEvent(new Event(ApplicationFacade.CREATE));
+				}
+				
+				// Style Main DataGrid Appeareance
+				gridCalls.setStyle("borderVisible", false);
+				
+				// Update by Base Status
+				updateChart("Queues");
+				
+				// Enable dataProvider Filter Function
+				queuesDataProvider.filterFunction = statsFilterFunction;
+				queuesMemberDataProvider.filterFunction = statsFilterFunction;
+			}
+			
+			protected function viewDeactivate():void {
+				// Unregistering Mediators
+				if(facade.hasMediator(RightQueuesViewMediator.NAME)) {
+					facade.removeMediator(RightQueuesViewMediator.NAME);
+					// Dispatch Deinitialization Events
+					dispatchEvent(new Event(ApplicationFacade.DESTROY));
+				}
+			}
+			
+			private function searchDataProvider(evt:Event):void {
+				switch(leftViewStatus) {
+					case "Queues":
+						queuesDataProvider.refresh();
+						break;
+					case "Agents":
+						queuesMemberDataProvider.refresh();
+						break;
+				}
+			}
+			
+			protected function statsFilterFunction(obj:XML):Boolean {
+				if(leftViewStatus == "Queues") {
+					if(String(obj.Queue).toLowerCase().indexOf(txtFilter.text.toLowerCase()) > -1) {
+						if(chkFilter.selected) { return false; } else { return true; }
+					}
+				} else if(leftViewStatus == "Agents") {
+					if(String(obj.Name).toLowerCase().indexOf(txtFilter.text.toLowerCase()) > -1) {
+						if(chkFilter.selected) { return false; } else { return true; }
+					}
+				}
+				
+				if(chkFilter.selected) { return true; } else { return false; }
+			}
+			
+			/**
+			 * Hide Null Series
+			 */
+			protected function hideNullValues(obj:XML):Boolean {
+				if(leftViewStatus == "Queues") {
+					if(Number(obj.Holdtime) > 0 || Number(obj.TalkTime) > 0 || Number(obj.Completed) > 0 || Number(obj.Abandoned) > 0) {
+						return true;
+					} else return false;
+				} else if(leftViewStatus == "Agents") {
+					if(Number(obj.CallsTaken) > 0 || Number(obj.LastCall) > 0) {
+						return true;
+					} else return false;
+				}
+				
+				return false;
+			}
+			
+			/**
+			 * Update right View with data passed by left View
+			 */
+			protected function viewUpdate():void {
+				// Handle data passed by left View
+				if(data) {
+					// Track Left View Status
+					leftViewStatus = String(data.view);
+					// Update Dinamic Stats DataGrid
+					updateChart(leftViewStatus);
+					// Reset Search Field
+					if(txtFilter) txtFilter.text = "";
+					// Refresh Data Providers
+					queuesDataProvider.refresh();
+					queuesMemberDataProvider.refresh();
+				}
+			}
+			
+			public function seriesToMinute(series:Series, item:Object, fieldName:String):Object {
+				if (fieldName == 'xValue') {
+					var timeval:Number = 0;
+					if(StringUtil.trim(item.LastCall).length > 0) {
+						timeval = Number(item.LastCall);
+					} else if(StringUtil.trim(item.Holdtime).length > 0) {
+						timeval = Number(item.Holdtime);
+					}
+					
+					// Return time in minutes
+					var date:Date = new Date(timeval * 1000);
+					return(date.minutes);
+				}
+				
+				return 0;
+			}    
+			
+			private function channelToName(item:Object, column:GridColumn):String {
+				if(item) {
+					
+					// Channel RegExs
+					var chn:RegExp	= new RegExp("^(.*)\/(.*)@(.*)$");
+					var chn2:RegExp	= new RegExp("^(.*)\/(.*)$");
+					
+					// Data Validation
+					var results:Array;
+					if(chn.test(item.Name)) {
+						results = String(item.Name).split(chn);
+						return("Agent: " + results[2]);
+					} else if(chn2.test(item.Name)) {
+						return("Agent: " + results[2]);
+						results = String(item.Name).split(chn2);
+					} else {
+						return String(item.Name);
+					}
+				}
+				
+				return "(Noname)";
+			}
+			
+			protected function updateChart(type:String):void {
+				// Column Series
+				var chartSer:BarSeries = new BarSeries();
+				var chartSeries:Array = new Array();
+				
+				// Check Datagrid Type
+				switch(type) {
+					case "Queues":
+
+						chart.dataProvider = queuesDataProvider;
+						verticalCategoryAxis.categoryField = "Queue";
+						chartSeries = new Array();
+						
+						//chartSer.setStyle("itemRenderer", new ClassFactory(mx.charts.renderers.CircleItemRenderer));
+						chartSer.xField = "Holdtime";
+						chartSer.yField = "Queue";
+						chartSer.displayName = "Hold Time";
+						chartSeries.push(chartSer);
+						chartSer = new BarSeries();
+						chartSer.xField = "TalkTime";
+						chartSer.yField = "Queue";
+						chartSer.displayName = "Talk Time";
+						chartSeries.push(chartSer);
+						chartSer = new BarSeries();
+						chartSer.xField = "Completed";
+						chartSer.yField = "Queue";
+						chartSer.displayName = "Calls Completed";
+						chartSeries.push(chartSer);
+						chartSer = new BarSeries();
+						chartSer.xField = "Abandoned";
+						chartSer.yField = "Queue";
+						chartSer.displayName = "Calls Abandoned";
+						chartSeries.push(chartSer);
+						chartSer = new BarSeries();
+						chartSer.xField = "ServiceLevel";
+						chartSer.yField = "Queue";
+						chartSer.displayName = "Service Level";
+						chartSeries.push(chartSer);
+						
+						break;
+					case "Agents":
+						
+						chart.dataProvider = queuesMemberDataProvider;
+						verticalCategoryAxis.categoryField = "Name";
+						chartSeries = new Array();
+						
+						chartSer.xField = "CallsTaken";
+						chartSer.yField = "Name";
+						chartSer.displayName = "Calls Taken";
+						chartSeries.push(chartSer);
+						chartSer = new BarSeries();
+						chartSer.xField = "LastCall";
+						chartSer.yField = "Name";
+						chartSer.displayName = "Last Call";
+						chartSer.dataFunction = seriesToMinute;
+						chartSeries.push(chartSer);
+						
+						break;
+				}
+				
+				// Add Series to Set
+				// chartSet.series = chartSeries;
+				chart.series = chartSeries;
+			}
+			
+			/**
+			 * Switches between member or queue views
+			 */
+			protected function statsView_changeHandler(event:Event):void {
+				switch (currentState) {
+					case "Stats":
+						// Apply Data Provider Filter
+						queuesDataProvider.filterFunction = statsFilterFunction;
+						queuesMemberDataProvider.filterFunction = statsFilterFunction;
+						currentState = "Calls";
+						break;
+					case "Calls":
+						// Apply Data Provider Filter
+						queuesDataProvider.filterFunction = hideNullValues;
+						queuesMemberDataProvider.filterFunction = hideNullValues;
+						currentState = "Stats";
+						break;
+					default:
+						// Apply Data Provider Filter
+						queuesDataProvider.filterFunction = statsFilterFunction;
+						queuesMemberDataProvider.filterFunction = statsFilterFunction;
+						currentState = "Calls";
+						break;
+				}
+				
+				// Reset Search Text Filter
+				txtFilter.text = "";
+				
+				// Refresh Data Provider Filtering
+				queuesDataProvider.refresh();
+				queuesMemberDataProvider.refresh();
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<s:titleContent>
+		<s:HGroup width="100%" height="60%" horizontalAlign="left" verticalAlign="middle" paddingLeft="10">
+			<s:Label fontFamily="Ubuntu" fontSize="14" color="0xFFFFFF" text="{ 'Queued Calls: ' + gridCalls.dataProvider.length }" includeIn="Calls"/>
+			<s:CheckBox  id="chkFilter" includeIn="Stats" change="{ searchDataProvider(event); }" fontFamily="Ubuntu-DG"/>
+			<s:TextInput width="100%" fontFamily="Ubuntu" id="txtFilter" prompt="Filter:" includeIn="Stats" change="{ searchDataProvider(event); }"/>
+			<s:Spacer includeIn="Calls" width="100%"/>
+		</s:HGroup>
+	</s:titleContent>
+	
+	<s:actionContent>
+		<s:Button icon.Calls="@Embed('/assets/images/stats.png')" fontSize="20"
+				  id="viewToggleSwitch" click="{ statsView_changeHandler(event); }"
+				  icon.Stats="@Embed('/assets/images/call.png')" fontFamily="Ubuntu-DG"/>
+	</s:actionContent>
+	
+	<s:DataGrid visible="false" includeInLayout="false" visible.Calls="true" includeInLayout.Calls="true" fontFamily="Ubuntu" fontSize="12"
+				id="gridCalls" width="100%" height="100%" dataProvider="{ callsDataProvider }">
+		<s:columns>
+			<s:ArrayList>
+				<s:GridColumn dataField="CallerIDNum" headerText="Caller"/>
+				<s:GridColumn dataField="Queue" headerText="Queue"/>
+				<s:GridColumn dataField="Position" headerText="Position"/>
+				<s:GridColumn dataField="Count" headerText="Count"/>
+				<s:GridColumn dataField="DateTime" headerText="Time"/>
+			</s:ArrayList>
+		</s:columns>
+	</s:DataGrid>
+	
+	<s:Group id="emptyMsgBox" left="0" right="0" top="0" bottom="0" alpha=".7" includeIn="Calls"
+			 visible="{!callsDataProvider.length}" includeInLayout="{!callsDataProvider.length}">
+		
+		<s:Rect left="0" right="0" top="0" bottom="0">
+			<s:fill>
+				<s:SolidColor color="0x000000" />
+			</s:fill>
+		</s:Rect>
+		
+		<s:Label text="No queued calls ..." color="0xffffff" verticalCenter="0" horizontalCenter="0" />
+	</s:Group>
+	
+	<!-- Column Charts Begin -->
+	<mx:BarChart visible.Stats="true" includeInLayout.Stats="true" visible="false" includeInLayout="false"
+				 id="chart" showDataTips="true" left="0" top="{ chartLegend.height + 5 }" bottom="0" right="0"
+				 paddingTop="5" paddingLeft="5" paddingRight="5" paddingBottom="5" alpha="0.9" fontFamily="_sans"
+				 interactionMode="touch" click="{ if(chart.showAllDataTips) chart.showAllDataTips = false; else chart.showAllDataTips = true; }">
+		
+		<mx:fill>
+			<s:BitmapFill source="@Embed('/assets/images/bg.png')" fillMode="repeat"/>
+		</mx:fill>
+		
+		<mx:verticalAxisRenderers>
+			<mx:AxisRenderer axis="{verticalCategoryAxis}" styleName="myAxisStyle"/>
+		</mx:verticalAxisRenderers>
+		
+		<mx:verticalAxis>
+			<mx:CategoryAxis id="verticalCategoryAxis"/>
+		</mx:verticalAxis>
+		
+	</mx:BarChart>
+	
+	<mx:Legend id="chartLegend" dataProvider="{ chart }" fontFamily="_sans" top="5" right="5" direction="vertical"
+			   visible.Stats="true" includeInLayout.Stats="true" visible="false" includeInLayout="false" height="25"/>
+	<!-- Column Charts End -->
+	
+</s:View>

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:GridItemRenderer xmlns:fx="http://ns.adobe.com/mxml/2009" 
+				xmlns:s="library://ns.adobe.com/flex/spark"
+				dataChange="{ updateMe(); }">
+	
+	<fx:Declarations>
+		<s:Animate id="fader" duration="500" repeatBehavior="reverse" repeatCount="2" target="{mainGroup}">
+			<s:SimpleMotionPath property="alpha" valueFrom="1.0" valueTo="0.0" />
+		</s:Animate>
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			
+			protected function updateMe():void {
+				if(data) {
+					var object:XML = data as XML;
+				}
+			}
+		]]>
+	</fx:Script>
+	
+	<s:Group id="mainGroup" width="100%" height="100%">
+		<s:DataGrid id="mainDataGrid" width="100%" height="100%">
+			
+		</s:DataGrid>
+	</s:Group>
+	
+</s:GridItemRenderer>

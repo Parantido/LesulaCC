@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:ItemRenderer xmlns:fx="http://ns.adobe.com/mxml/2009" 
+				xmlns:s="library://ns.adobe.com/flex/spark"
+				dataChange="{ updateItem(); }" width="100%" height="100%"
+				autoDrawBackground="false">
+	
+	<fx:Declarations>
+		<s:Animate id="fader" duration="500" repeatBehavior="reverse" repeatCount="0" target="{mainGroup}">
+			<s:SimpleMotionPath property="alpha" valueFrom="1.0" valueTo="0.0" />
+		</s:Animate>
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			
+			protected function updateItem():void {
+				if(data) {
+					// Retrieve XML Object
+					var xml:XML = XML(data);
+					
+					// Exit on null data
+					if(!xml) return;
+					
+					// Check For Event Type
+					if(xml.Event == "Newexten") {
+						itemType.text  = "Extension: ";
+						itemTitle.text = xml.Extension;
+						
+						gr1.visible		= gr1.includeInLayout = true;
+						lblItem1.text	= "Priority: ";
+						item1.text		= xml.Priority;
+						
+						gr2.visible		= gr2.includeInLayout = true;
+						lblItem2.text	= "Application: ";
+						item2.text		= xml.Application;
+						
+						gr3.visible		= gr3.includeInLayout = true;
+						lblItem3.text	= "Data: ";
+						item3.text		= xml.AppData;
+						
+						gr4.visible		= gr4.includeInLayout = true;
+						lblItem4.text	= "Context: ";
+						item4.text		= xml.Context;
+						
+						gr5.visible		= gr5.includeInLayout = true;
+						lblItem5.text	= "Channel: ";
+						item5.text		= xml.Channel;
+						
+						gr6.visible		= gr6.includeInLayout = true;
+						lblItem6.text	= "Date: ";
+						item6.text		= xml.DateTime;
+					} else if(xml.Event == "VarSet") {
+						itemType.text  = "Variable: ";
+						itemTitle.text = xml.Variable;
+						
+						gr1.visible		= gr1.includeInLayout = true;
+						lblItem1.text	= "Channel: ";
+						item1.text		= xml.Channel;
+						
+						gr2.visible		= gr2.includeInLayout = true;
+						lblItem2.text	= "Variable: ";
+						item2.text		= xml.Variable;
+						
+						gr3.visible		= gr3.includeInLayout = true;
+						lblItem3.text	= "Value: ";
+						item3.text		= xml.Value;
+						
+						gr4.visible		= gr6.includeInLayout = true;
+						lblItem4.text	= "Date: ";
+						item4.text		= xml.DateTime;
+					}
+					
+				}
+			}
+		]]>
+	</fx:Script>
+	
+	<s:BorderContainer id="mainGroup" left="10" right="10" top="5" bottom="5" borderWeight="1" cornerRadius="5">
+		
+		<s:layout>
+			<s:HorizontalLayout verticalAlign="middle" horizontalAlign="center" gap="5"
+						paddingBottom="5" paddingLeft="10" paddingRight="5" paddingTop="5"/>
+		</s:layout>
+		
+		<s:VGroup width="100%" height="80%" horizontalAlign="left" verticalAlign="middle"
+				  paddingBottom="0" paddingLeft="5" paddingRight="5" paddingTop="0">
+			
+			<s:HGroup id="titleContainer" width="100%" horizontalAlign="left" verticalAlign="middle">
+				<s:Label id="itemType"  fontFamily="Ubuntu" fontSize="16" fontWeight="normal" text="Extension: " width="80"/>
+				<s:Label id="itemTitle" fontFamily="Ubuntu" fontSize="18" fontWeight="bold"  text="Title" maxDisplayedLines="1"
+						 maxWidth="{ titleContainer.width - itemType.width }"/>
+			</s:HGroup>
+			
+			<s:VGroup width="100%" height="100%" paddingLeft="15">
+				<s:HGroup id="gr1" visible="false" includeInLayout="false" horizontalAlign="left" verticalAlign="middle">
+					<s:Label id="lblItem1" width="60" fontFamily="Ubuntu" fontSize="12" fontWeight="normal" maxWidth="60" maxDisplayedLines="1"/>
+					<s:Label id="item1" width="100%"  fontFamily="Ubuntu" fontSize="12" fontWeight="bold" text="Item1"/>
+				</s:HGroup>
+				<s:HGroup id="gr2" visible="false" includeInLayout="false" horizontalAlign="left" verticalAlign="middle">
+					<s:Label id="lblItem2" width="60" fontFamily="Ubuntu" fontSize="12" fontWeight="normal" maxWidth="60" maxDisplayedLines="1"/>
+					<s:Label id="item2" width="100%"  fontFamily="Ubuntu" fontSize="12" fontWeight="bold" text="Item2"/>
+				</s:HGroup>
+				<s:HGroup id="gr3" visible="false" includeInLayout="false" horizontalAlign="left" verticalAlign="middle">
+					<s:Label id="lblItem3" width="60" fontFamily="Ubuntu" fontSize="12" fontWeight="normal" maxWidth="60" maxDisplayedLines="1"/>
+					<s:Label id="item3" width="100%"  fontFamily="Ubuntu" fontSize="12" fontWeight="bold" text="Item3"/>
+				</s:HGroup>
+				<s:HGroup id="gr4" visible="false" includeInLayout="false" horizontalAlign="left" verticalAlign="middle">
+					<s:Label id="lblItem4" width="60" fontFamily="Ubuntu" fontSize="12" fontWeight="normal" maxWidth="60" maxDisplayedLines="1"/>
+					<s:Label id="item4" width="100%"  fontFamily="Ubuntu" fontSize="12" fontWeight="bold" text="Item4"/>
+				</s:HGroup>
+				<s:HGroup id="gr5" visible="false" includeInLayout="false" horizontalAlign="left" verticalAlign="middle">
+					<s:Label id="lblItem5" width="60" fontFamily="Ubuntu" fontSize="12" fontWeight="normal" maxWidth="60" maxDisplayedLines="1"/>
+					<s:Label id="item5" width="100%"  fontFamily="Ubuntu" fontSize="12" fontWeight="bold" text="Item5"/>
+				</s:HGroup>
+				<s:HGroup id="gr6" visible="false" includeInLayout="false" horizontalAlign="left" verticalAlign="middle">
+					<s:Label id="lblItem6" width="60" fontFamily="Ubuntu" fontSize="12" fontWeight="normal" maxWidth="60" maxDisplayedLines="1"/>
+					<s:Label id="item6" width="100%"  fontFamily="Ubuntu" fontSize="12" fontWeight="bold" text="Item6"/>
+				</s:HGroup>
+			</s:VGroup>
+			
+		</s:VGroup>
+		
+	</s:BorderContainer>
+
+	<!--<s:BorderContainer right="2" bottom="2" width="50" height="50" cornerRadius="10"
+					   skinClass="assets.skins.CustomBorderContainerBubbleSkin">
+		<s:layout>
+			<s:VerticalLayout horizontalAlign="center" verticalAlign="middle"/>
+		</s:layout>
+		<s:Label id="itemCounter" fontSize="14" text="0"/>
+	</s:BorderContainer>-->
+</s:ItemRenderer>

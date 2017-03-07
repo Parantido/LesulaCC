@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009"
+		 xmlns:mx="library://ns.adobe.com/flex/mx"
+		 xmlns:s="library://ns.adobe.com/flex/spark"
+		 creationComplete="{ key_initializeHandler(event); }">
+	
+	<fx:Declarations>
+		<s:Sequence id="keyEffect" >
+			<s:Scale3D duration="80" scaleXFrom="1" scaleXTo="2" scaleYFrom="1" scaleYTo="2" autoCenterTransform="true"/>
+			<s:SetAction target="{ underStroke }" property="color" value="{ underLineColorPR }"/>
+			<s:SetAction target="{ underStroke }" property="weight" value="3"/>
+			<s:Scale3D duration="80" scaleXFrom="2" scaleXTo="1" scaleYFrom="2" scaleYTo="1" autoCenterTransform="true"/>
+			<s:SetAction target="{ underStroke }" property="weight" value="2"/>
+			<s:SetAction target="{ underStroke }" property="color" value="{ underLineColor }"/>
+		</s:Sequence>
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import mx.events.FlexEvent;
+			
+			import org.virtualkeyboard.events.VirtualKeyboardEvent;
+			
+			[Bindable] public var fontSize:int			= 24;
+			[Bindable] public var keyText:String		= "0";
+			[Bindable] public var isImage:Boolean		= false;
+			[Bindable] public var keyColor:uint			= 0xFFFFFF;
+			[Bindable] public var underLineColor:uint	= 0xCCCCCC;
+			[Bindable] public var underLineColorPR:uint	= 0xF00000;
+			[Bindable] public var imageSource:Object	= "@Embed('../images/backspace.png')";
+			
+			/**
+			 * Initialize Key
+			 */
+			protected function key_initializeHandler(event:FlexEvent):void {
+				fontSize = (mainGrp.height / 1.8);
+			}
+			
+			/**
+			 * Key Press Effect
+			 */
+			private function onPress_Handle(event:Event, type:Boolean):void {
+				// Check Key Event
+				if(type) {
+					// Dispatch Key Clicked Event
+					dispatchEvent(new VirtualKeyboardEvent(VirtualKeyboardEvent.KEY_CLICKED, key.text));
+				}
+				
+				// Play KeyPress Effect
+				keyEffect.play([event.currentTarget]);
+			}
+		]]>
+	</fx:Script>
+	
+	<s:VGroup mouseUp="{ onPress_Handle(event, false); }" mouseDown="{ onPress_Handle(event, true); }"
+			  horizontalAlign="center" verticalAlign="middle" buttonMode="true"
+			  id="mainGrp" left="0" top="0" right="0" bottom="0">
+		
+		<s:Label text="{ keyText }" color="{ keyColor }" textAlign="center" id="key" width="100%" height="100%"
+				 visible="{!isImage}" includeInLayout="{!isImage}" fontSize="{ fontSize }"/>
+		<s:Image id="btnDelete" source="{ imageSource }" scaleMode="letterbox" visible="{isImage}"
+				 includeInLayout="{isImage}" smooth="true" smoothingQuality="default"
+				 height="100%"/>
+		<s:Line width="99%">
+			<s:stroke>
+				<s:SolidColorStroke id="underStroke" color="{ underLineColor }" caps="round" weight="2" alpha="0.6"/>
+			</s:stroke>
+		</s:Line>
+		
+	</s:VGroup>
+	
+</s:Group>

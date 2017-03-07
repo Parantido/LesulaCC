@@ -1,0 +1,292 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:SkinnablePopUpContainer backgroundAlpha="0"
+						   xmlns:fx="http://ns.adobe.com/mxml/2009" 
+						   xmlns:s="library://ns.adobe.com/flex/spark" 
+						   xmlns:classed="org.techfusion.view.components.classed.*"
+						   open="{ onPopupOpen(); }" close="{ onPopupClose(); }" currentState="Controls">
+	
+	
+	<s:states>
+		<s:State name="AlertBox"/>
+		<s:State name="Controls"/>
+	</s:states>
+	
+	<fx:Script>
+		<![CDATA[
+			import mx.collections.ArrayCollection;
+			import mx.core.FlexGlobals;
+			
+			import spark.components.View;
+			
+			import org.puremvc.as3.patterns.facade.Facade;
+			import org.techfusion.events.AsteriskEvent;
+			import org.techfusion.view.mediators.PopupDialogMediator;
+			import org.virtualkeyboard.components.VirtualKeyboard;
+			
+			private var _message:String;
+			private var _action:String;
+			private var _channel:String;
+			private var _retchannel:String;
+			
+			private var activeView:View;
+
+			[Bindable] private var _contextDataProvider:ArrayCollection;
+			[Bindable] private var _parkingLotsDataProvider:ArrayCollection;
+			
+			// Define Facade Placeholder
+			private var facade:Facade = null;
+			
+			// Instantiate a Virtual Keyboard
+			private var vkeyboard:VirtualKeyboard = null;
+			
+			//*******************************************
+			//*
+			//*   SETTER / GETTER Methods
+			//*
+			//*******************************************
+			
+			[Bindable]
+			public function get message():String {
+				return _message;
+			}
+			
+			public function set message(value:String):void {
+				_message = value;
+			}
+			
+			[Bindable]
+			public function get action():String {
+				return _action;
+			}
+			
+			public function set action(value:String):void {
+				_action = value;
+			}
+			
+			[Bindable]
+			public function get channel():String {
+				return _channel;
+			}
+			
+			public function set channel(value:String):void {
+				_channel = value;
+			}
+			
+			[Bindable]
+			public function get retchannel():String {
+				return _retchannel;
+			}
+			
+			public function set retchannel(value:String):void {
+				_retchannel = value;
+			}
+			
+			[Bindable]
+			public function get context():ArrayCollection {
+				return _contextDataProvider;
+			}
+			
+			public function set context(value:ArrayCollection):void {
+				_contextDataProvider = value;
+			}
+			
+			[Bindable]
+			public function get parkingLots():ArrayCollection {
+				return _parkingLotsDataProvider;
+			}
+			
+			public function set parkingLots(value:ArrayCollection):void {
+				_parkingLotsDataProvider = value;
+			}
+			
+			//*******************************************
+			//*
+			//*   Public Methods
+			//*
+			//*******************************************
+			
+			public function show():void {
+				// For Normal View Application
+				activeView = FlexGlobals.topLevelApplication.navigator.activeView;
+				
+				// For Tabbed View Application
+				// mainTabbedNavigator = FlexGlobals.topLevelApplication.tabbedNavigator;
+				// currentTab = mainTabbedNavigator.selectedNavigator as ViewNavigator;
+
+				this.center();
+				this.open(activeView, true);
+			}
+			
+			public function center():void {
+				this.width = activeView.width * 0.7;
+				this.height = activeView.height * 0.6;
+				
+				var newX:Number = (activeView.width / 2) - (this.width /2);
+				var newY:Number = (activeView.height / 2) - (this.height/2);
+				
+				this.x = newX;
+				this.y = newY;
+			}
+			
+			//*******************************************
+			//*
+			//*   PRIVATE Methods
+			//*
+			//*******************************************
+			
+			/**
+			 * Popup Constructor
+			 */
+			private function onPopupOpen():void {
+				// Retrieve Facade Instance
+				if(!facade) facade = ApplicationFacade.getInstance();
+				
+				// Attach Mediator to Callout Button
+				if(!facade.hasMediator(PopupDialogMediator.NAME)) {
+					facade.registerMediator(new PopupDialogMediator(this));
+				}
+				
+				// Setup Virtual Keyboard
+				vkeyboard = new VirtualKeyboard();
+				vkeyboard.bottom = 5;
+				vkeyboard.horizontalCenter = 0;
+				vkeyboard.visible = false;
+				addElement(vkeyboard);
+			}
+			
+			/**
+			 * Popup Destructor
+			 */
+			private function onPopupClose():void {
+				// Detach Mediator to Callout Button
+				if(facade.hasMediator(PopupDialogMediator.NAME)) {
+					facade.removeMediator(PopupDialogMediator.NAME);
+				}
+				
+				// Garbage Collect Facade
+				facade = null;
+				
+				// Deinitialize Virtual Keyboard
+				vkeyboard = null
+			}
+			
+			/**
+			 * Handle Close Action
+			 */
+			private function onClick(commit:Boolean):void {
+				// Do Action
+				if(commit) {
+					// Base Data Structure
+					var event:String	= null;
+					var object:Object	= new Object;
+					object.channel		= _channel;
+					// Build Data Structure Based on Action
+					if(rbTran.selected) {
+						if(txtExtension.text.length > 0) {
+							event = AsteriskEvent.TRANSFER;
+							object.context	 = XML(slistContext.selectedItem).Context;
+							object.extension = txtExtension.text;
+						} else {
+							txtExtension.errorString = "Extension needed for transfer action!!!";
+							return;
+						}
+					} else if(rbPark.selected) {
+						event = AsteriskEvent.PARK;
+						object.retchannel = _retchannel;
+					} else {
+						event = AsteriskEvent.HANGUP;
+					}
+					
+					// Save Action
+					object.action = event;
+					
+					// Dispatch Action
+					dispatchEvent(new AsteriskEvent(event, object));
+				}
+				
+				// Propagate Close Action
+				super.close(commit);
+			}
+			
+			/**
+			 * Handle Radio Button Switch
+			 */
+			protected function handleRadioSwitch(evt:Event):void {
+				if(rbTran.selected) {
+					txtExtension.enabled = true;
+					slistContext.enabled = true;
+				} else {
+					txtExtension.enabled = false;
+					slistContext.enabled = false;
+				}
+			}
+			
+			protected function softKeyboardActivatingHandler(event:SoftKeyboardEvent):void {
+				event.preventDefault();
+			}
+		]]>
+	</fx:Script>
+	
+	<s:BorderContainer cornerRadius="5" left="0" right="0" bottom="0" top="0" borderColor="0xFFFFFF" borderWeight="1" includeInLayout.AlertBox="false"
+					   backgroundAlpha="0.9" backgroundImage="@Embed('/assets/images/bg.png')" backgroundImageFillMode="repeat" visible.AlertBox="false">
+		
+		<s:layout>
+			<s:VerticalLayout gap="20" horizontalAlign="center" verticalAlign="middle"
+							  paddingBottom="10" paddingLeft="30" paddingRight="30" paddingTop="30"/>
+		</s:layout>
+	
+		<!-- Action Area -->
+		<s:HGroup width="95%" verticalAlign="middle" horizontalAlign="center" gap="10">
+			<s:RadioButton id="rbTran" click="{ handleRadioSwitch(event); }" label="Transfer" color="0xFFFFFF" selected="false"/>
+			<s:RadioButton id="rbHang" click="{ handleRadioSwitch(event); }" label="Hangup" color="0xFFFFFF" selected="true"/>
+			<s:RadioButton id="rbPark" click="{ handleRadioSwitch(event); }" label="Park" color="0xFFFFFF" selected="false"/>
+		</s:HGroup>
+		
+		<!-- Data Area -->
+		<s:VGroup width="95%" verticalAlign="middle" horizontalAlign="center" gap="10">
+			
+			<classed:CustomTextInput fontSize="24" prompt="Extension" textAlign="center" needsSoftKeyboard="true" enter="{ stage.focus = null; }"
+									 id="txtExtension" width="100%" height="45" borderVisible="false" skinClass="assets.skins.skinnedTextInput"
+									 enabled="false" fontFamily="_sans"  autoCapitalize="none" returnKeyLabel="done" softKeyboardType="url"
+									 sideImage="@Embed('/assets/images/tran_button.png')" color="0xFFFFFF" restrict="0-9a-zA-Z@_/\-"
+									 softKeyboardActivating="softKeyboardActivatingHandler(event)"/>
+			
+			<s:List id="slistContext" width="100%" dataProvider="{ _contextDataProvider }" borderVisible="false"
+					verticalScrollPolicy="off" itemRenderer="org.techfusion.view.renderers.contextListItemRenderer"
+					pageScrollingEnabled="false" contentBackgroundAlpha="0" allowMultipleSelection="false" enabled="false" selectedIndex="0">
+				
+				<s:layout>
+					<s:HorizontalLayout useVirtualLayout="true" verticalAlign="middle" horizontalAlign="center" gap="10"/>
+				</s:layout>
+				
+			</s:List>
+			
+		</s:VGroup>
+		
+		<!-- Control Area -->
+		<s:HGroup width="95%" verticalAlign="middle" horizontalAlign="center">
+			<s:Image click="{ onClick(true); }" source="@Embed('/assets/images/ok.png')"/>
+			<s:Image click="{ onClick(false);}" source="@Embed('/assets/images/cancel.png')"/>
+		</s:HGroup>
+		
+	</s:BorderContainer>
+	
+	<s:BorderContainer cornerRadius="5" left="0" right="0" bottom="0" top="0" borderColor="0xFFFFFF" borderWeight="1" includeInLayout.Controls="false"
+					   backgroundAlpha="0.9" backgroundImage="@Embed('/assets/images/bg.png')" backgroundImageFillMode="repeat" visible.Controls="false">
+		
+		<s:layout>
+			<s:VerticalLayout gap="20" horizontalAlign="center" verticalAlign="middle"
+							  paddingBottom="10" paddingLeft="30" paddingRight="30" paddingTop="30"/>
+		</s:layout>
+		
+		<s:Label color="0xFFFFFF" text="{ message }" width="95%" textAlign="center"/>
+		
+		<!-- Control Area -->
+		<s:HGroup width="95%" verticalAlign="middle" horizontalAlign="center">
+			<s:Image click="{ onClick(true); }" source="@Embed('/assets/images/ok.png')"/>
+			<s:Image click="{ onClick(false);}" source="@Embed('/assets/images/cancel.png')"/>
+		</s:HGroup>
+		
+	</s:BorderContainer>
+	
+</s:SkinnablePopUpContainer>

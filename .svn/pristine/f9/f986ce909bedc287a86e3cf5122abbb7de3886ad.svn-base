@@ -1,0 +1,300 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:ItemRenderer xmlns:fx="http://ns.adobe.com/mxml/2009"
+				xmlns:mx="library://ns.adobe.com/flex/mx"
+				xmlns:s="library://ns.adobe.com/flex/spark"
+				autoDrawBackground="false" clipAndEnableScrolling="true"
+				contentBackgroundAlpha="0" dataChange="{ updateItem(); }"
+				removedFromStage="{ data = null; }">
+	
+	<s:layout>
+		<s:HorizontalLayout verticalAlign="middle" horizontalAlign="center"/>
+	</s:layout>
+	
+	<fx:Declarations>
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import mx.collections.ArrayCollection;
+			
+			import org.techfusion.events.AsteriskEvent;
+
+			[Bindable] private var peerName:String				= null;
+			[Bindable] private var peerStatus:String			= null;
+			[Bindable] private var peerDescription:String		= null;
+			[Bindable] private var peerCallsDP:ArrayCollection	= null;
+			
+			/**
+			 * Return Node Childs Number
+			 */
+			private function countNodeChilds(node:XMLList):int {
+				var counter:int = 0;
+				
+				for each (var child:XML in node) {
+					if(String(child).length) counter++;
+				}
+				
+				return(counter);
+			}
+
+			/**
+			 * Initialize Item Renderer Values
+			 */
+			private function updateItem():void {
+				if(data) {
+					// Retrieve XML Object
+					var xml:XML = XML(data);
+					
+					if(countNodeChilds(xml.ChannelsList)) {
+						// Populate Data Provider
+						peerCallsDP = new ArrayCollection();
+						
+						// Populate Data Provider
+						for each (var child:XML in xml.ChannelsList.channel) {
+							if(String(child).length && int(child.chanstate) > 0) {
+								
+								// Rework Call ID
+								if(!String(child.callidnum).length) {
+									child.callidnum = "Unknown";
+								}
+								
+								// Add to Spinner List
+								peerCallsDP.addItem(child);
+							}
+						}
+						
+						// Show Up Graphical Elements
+						peersCallContainer.visible = peersCallContainerTitle.visible = true;
+						peersCallContainer.includeInLayout = peersCallContainerTitle.includeInLayout = true;
+					} else {
+						// Hide Graphical Elements
+						peersCallContainer.visible = peersCallContainerTitle.visible = false;
+						peersCallContainer.includeInLayout = peersCallContainerTitle.includeInLayout = false;
+					}
+					
+					/**
+					 * @TODO: DA RIMUOVERE
+					 */
+					//peersCallContainer.visible = true;
+					//peersCallContainer.includeInLayout = true;
+					
+					// Populate Callout Button Appeareance
+					coButton.label	= String(xml.ObjectName);
+					
+					// Populate Callout Content
+					peerName		= String(xml.ObjectName);
+					peerStatus		= String(xml.Status);
+					peerDescription = String(xml.IPaddress);
+					
+					if(String(xml.IPport) != "0") {
+						peerDescription	+= ":" + String(xml.IPport);
+					}
+					
+					// Check Status
+					if(String(xml.Status) == "UNKNOWN" || String(xml.Status) == "Unavailable" || String(xml.Status) == "Not Found") {
+						
+						// Set Style
+						coButton.setStyle("chromeColor", "#898D90");
+						//titleContainer.setStyle("backgroundColor", "#898D90");
+						titleBorderLine.color = 0x898D90;
+						
+						// Set Values
+						coButton.toolTip		= null;
+						
+						// Set Display Icon
+						coButton.setStyle("icon", "/assets/images/phonestatus/unavailable.png");
+						
+					} else if(String(xml.Status) == "In Use" || String(xml.Status) == "Busy" || String(xml.Status) == "Up") {
+						
+						// Set Style
+						coButton.setStyle("chromeColor", "#EB4924");
+						//titleContainer.setStyle("backgroundColor", "#EB4924");
+						titleBorderLine.color = 0xEB4924;
+						// Set Display Icon
+						coButton.setStyle("icon", "/assets/images/phonestatus/busy.png");
+						
+						if(String(xml.LastChannel)) {
+							if(String(xml.OECallerID).length > 0) {
+								peerDescription = String(xml.OECallerID);
+							} else {
+								peerDescription	= "anonymous";
+							}
+						}
+						
+						// Unify Status
+						xml.Status = "Busy";
+						
+					} else if(String(xml.Status) == "Ringing" || String(xml.Status) == "Ring") {
+						
+						// Set Style
+						coButton.setStyle("chromeColor", "#6BA300");
+						//titleContainer.setStyle("backgroundColor", "#6BA300");
+						titleBorderLine.color = 0x6BA300;
+						
+						// Set Display Icon
+						coButton.setStyle("icon", "/assets/images/phonestatus/ringing.png");
+						
+						if(String(xml.LastChannel)) {
+							if(String(xml.OECallerID).length > 0) {
+								peerDescription = String(xml.OECallerID);
+							} else {
+								peerDescription = "anonymous";
+							}
+						}
+						
+					} else if(String(xml.Status) == "On Hold") {
+						
+						// Set Style
+						coButton.setStyle("chromeColor", "#007FB1");
+						//titleContainer.setStyle("backgroundColor", "#007FB1");
+						titleBorderLine.color = 0x007FB1;
+						// Set Display Icon
+						coButton.setStyle("icon", "/assets/images/phonestatus/hold.png");
+						
+					} else {
+						
+						// Set Style
+						coButton.setStyle("chromeColor", "#6BA300");
+						//titleContainer.setStyle("backgroundColor", "#6BA300");
+						titleBorderLine.color = 0x6BA300;
+						// Set Values
+						coButton.toolTip		= String(xml.Status);
+						
+						// Set Display Icon
+						coButton.setStyle("icon", "/assets/images/phonestatus/available.png");
+						
+					}
+				}
+			}
+			
+			private function handleChannelChange():void {
+			}
+			
+			private function hangupSelectedCall():void {
+				// Get Selected Item
+				var selectedCall:XML	= spinnerCalls.selectedItem as XML;
+				
+				if(selectedCall) {
+					// Requesting Hangup
+					dispatchEvent(new AsteriskEvent(AsteriskEvent.HANGUP, String(selectedCall.chanOrig)));
+				}
+			}
+			
+			private function parkSelectedCall():void {
+				// Get Selected Item
+				var selectedCall:XML	= spinnerCalls.selectedItem as XML;
+				
+				// Convert Channel Syntax
+				var chnnelExp:RegExp	= /(.*)_(.*)_(.*)/; 
+				var chanItems:Array		= chnnelExp.exec(String(selectedCall.chanName));
+				
+				// Compose Chan Name
+				var callToPark:Object	= new Object();
+				callToPark.Channel		= chanItems[1] + "/" + chanItems[2] + "-" + chanItems[3];
+				callToPark.RetChannel	= chanItems[1] + "/" + chanItems[2];
+				
+				// Requesting Hangup
+				dispatchEvent(new AsteriskEvent(AsteriskEvent.PARK, callToPark));
+			}
+			
+			/**
+			 * Returns a well formatted field
+			 */
+			protected function lblFunction(item:Object):String{
+				if(String(item.callidnum).length > 0)  
+					return item.callidnum + ": " + item.chanstate + " (" + item.chanName + ")";
+				else
+					return "No CallerID : " + item.chanstate + " (" + item.chanName + ")";
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<s:CalloutButton skinClass="assets.skins.PeerCalloutButtonSkin" id="coButton" label="Peer" fontFamily="Ubuntu-DG"
+					 icon="@Embed('/assets/images/RadioButton_upIcon.png')">
+		<s:calloutContent>
+		
+			<s:VGroup width="250" height="100%" gap="0" horizontalAlign="center" paddingBottom="5"
+					  paddingTop="10" paddingLeft="5" paddingRight="5" verticalAlign="middle">
+				
+				<s:BorderContainer borderVisible="false" id="titleContainer" width="98%" height="30" creationPolicy="all" cornerRadius="0">
+					<s:layout>
+						<s:HorizontalLayout horizontalAlign="center" paddingBottom="5"
+							paddingLeft="5" paddingRight="5" paddingTop="5"/>
+					</s:layout>
+				
+					<s:Label width="100%" height="100%" fontSize="16" fontWeight="bold" verticalAlign="middle"
+							 maxDisplayedLines="1" text="{ peerName }" toolTip="{ peerName }"/>
+					
+					<s:Line width="100%" visible="false"/>
+					<s:Image maxWidth="24" source="@Embed('/assets/images/close.png')"
+							 click="{ coButton.closeDropDown(); }"/>
+					
+				</s:BorderContainer>
+				
+				<s:Line width="100%">
+					<s:stroke>
+						<s:SolidColorStroke id="titleBorderLine" color="black" weight="5"/>
+					</s:stroke>
+				</s:Line>
+
+				<s:Spacer height="10"/>
+				
+				<s:Label width="100%" text="Details" textAlign="right" verticalAlign="middle" fontSize="12"
+						 paddingRight="5"/>
+				
+				<s:BorderContainer id="bodyContainer" width="98%" height="50" creationPolicy="all" cornerRadius="5">
+					<s:layout>
+						<s:HorizontalLayout horizontalAlign="center" paddingLeft="5" paddingRight="5" paddingTop="5"/>
+					</s:layout>
+				
+					<s:VGroup width="100%" height="100%" paddingLeft="0" paddingRight="5"
+							  verticalAlign="middle">
+						<s:Label width="100%" fontSize="14" paddingRight="5" text="{ peerStatus }"/>
+						<s:Label width="100%" fontSize="14" maxDisplayedLines="1" paddingRight="0" 
+								 text="{ peerDescription }" toolTip="{ peerDescription }"/>
+					</s:VGroup>
+				</s:BorderContainer>
+				
+				<s:Spacer height="10"/>
+				
+				<s:Label id="peersCallContainerTitle" width="100%" text="Channels" textAlign="right" verticalAlign="middle" fontSize="12"
+						 paddingRight="5"/>
+				
+				<s:BorderContainer id="peersCallContainer" width="98%" height="140" creationPolicy="all" cornerRadius="5">
+					
+					<s:layout>
+						<s:VerticalLayout horizontalAlign="center" paddingLeft="5" paddingRight="5" paddingTop="5" paddingBottom="5"/>
+					</s:layout>
+					
+					<s:SpinnerListContainer width="100%" height="80">
+						<s:SpinnerList id="list" width="20%" fontFamily="_sans" fontSize="10"
+									   selectedIndex="{ spinnerCalls.selectedIndex }" fontWeight="bold">
+							<s:dataProvider>
+								<s:NumericDataProvider minimum="0" maximum="{ int(peerCallsDP.length - 1) }" stepSize="1" />
+							</s:dataProvider>
+						</s:SpinnerList>						
+						<s:SpinnerList id="spinnerCalls" width="80%" height="60"
+									   dataProvider="{ peerCallsDP }" fontFamily="_sans"
+									   fontSize="10" fontWeight="bold" labelFunction="lblFunction"
+									   selectedIndex="{ list.selectedIndex }" change="{ handleChannelChange(); }"/>
+					</s:SpinnerListContainer>
+					
+					<s:Group width="100%" height="40">
+						<s:layout>
+							<s:HorizontalLayout horizontalAlign="center" gap="8" verticalAlign="middle" />
+						</s:layout>
+						
+						<s:Label text="Hangup"/>
+						<s:Button icon="@Embed('/assets/images/hangup_button.png')" toolTip="HangUP" iconPlacement="left"
+								  click="{ hangupSelectedCall(); }" skinClass="assets.skins.ButtonBarLeftButtonSkin" label="Hang" width="32" height="32" />
+					</s:Group>
+					
+				</s:BorderContainer>
+				
+			</s:VGroup>
+		
+		</s:calloutContent>
+	</s:CalloutButton>
+	
+</s:ItemRenderer>

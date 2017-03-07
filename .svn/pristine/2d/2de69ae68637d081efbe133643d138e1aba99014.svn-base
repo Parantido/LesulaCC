@@ -1,0 +1,578 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:BorderContainer xmlns:fx="http://ns.adobe.com/mxml/2009"
+				   xmlns:mx="library://ns.adobe.com/flex/mx"
+				   xmlns:s="library://ns.adobe.com/flex/spark"
+				   backgroundColor="0x000000" backgroundAlpha="0.5"
+				   width="610" height="215" currentState="Lowercase"
+				   borderVisible="true" borderWeight="1" cornerRadius="5">
+	
+	<s:layout>
+		<s:BasicLayout/>
+	</s:layout>
+    
+    <fx:Metadata>
+        [Event(name="KeyClicked", type="org.virtualkeyboard.events.VirtualKeyboardEvent")]
+    </fx:Metadata>
+    
+    <fx:Script>
+        <![CDATA[
+			import spark.events.TextOperationEvent;
+			
+			// Attached Text Component
+			private var _attachedTextComponent:Object = null;
+			
+			// Local Key Color
+			[Bindable]
+			private var keycolor:uint = 0xFFFFFF;
+			
+			public function set keyColor(color:uint):void {
+				keycolor = color;
+			}
+			
+			public function get keyColor():uint {
+				return keycolor;
+			}
+			
+			/**
+			 * Attach text component to write to
+			 */
+			public function attachComponent(component:Object):void {
+				if(component && (component.hasOwnProperty("text") && component.hasOwnProperty("selectionActivePosition"))) {
+					_attachedTextComponent = component;
+					this.visible = true;
+				} else {
+					throw new Error("VirtualKeyboard --> Invalid Text Based Component Attached");
+				}
+			}
+			
+			/**
+			 * Attach text component to write to
+			 */
+			public function detachComponent():void {
+				_attachedTextComponent = null;
+				this.visible = false;
+			}
+			
+			/**
+			 * Handle Uppercase/Lowercase Character
+			 */
+            protected function handleShiftButton(event:MouseEvent):void {
+                if (this.currentState == "Lowercase") {
+                    this.currentState = "Uppercase";
+                } else {
+                    this.currentState = "Lowercase";
+                }
+            }
+            
+			/**
+			 * Insert a Character in a string at defined position
+			 */
+			protected function insertCharAt(str:String, char:String, index:int):String {
+				return str.substr(0, index) + char + str.substr(index, str.length);
+			}
+			
+			protected function deleteCharAt(str:String, index:int):String {
+				return str.substr(0, index - 1) + str.substr(index, str.length);
+			}
+			
+			/**
+			 * Handle Key Pressed
+			 */
+            protected function handleButtonClick(evt:Event):void {
+				if(_attachedTextComponent != null && this.visible) {
+					// Retrieve Pressed Key
+					var keyPressed:String = evt.currentTarget.text as String;
+					// Retrieve Caret Position
+					var caretPosition:int = _attachedTextComponent.selectionActivePosition;
+					if(_attachedTextComponent.selectionActivePosition < _attachedTextComponent.text.length)
+						caretPosition = _attachedTextComponent.selectionActivePosition;
+					else
+						caretPosition = _attachedTextComponent.text.length;
+					// Handle Special Keys
+					switch(keyPressed) {
+						case "Del":
+							// Do nothing on first caret position
+							if(_attachedTextComponent.selectionActivePosition <= 0) return;
+							// Delete a character of string
+							if(_attachedTextComponent.selectionActivePosition < _attachedTextComponent.text.length) {
+								caretPosition -= 1;
+								_attachedTextComponent.text = deleteCharAt(
+									_attachedTextComponent.text, _attachedTextComponent.selectionActivePosition
+								);
+							// Delete a character at the end of a string
+							} else {
+								_attachedTextComponent.text = String(_attachedTextComponent.text).slice(0, -1);
+							}
+							break;
+						case "Space":
+							// Handle Space
+							caretPosition += 1;
+							_attachedTextComponent.text = insertCharAt(
+								String(_attachedTextComponent.text), String(" "),
+								int(_attachedTextComponent.selectionActivePosition));
+							break;
+						case "Tab":
+							return;
+							break;
+						case "Done":
+							// Detach keyboard from component on Done
+							this.detachComponent();
+							break;
+						default:
+							// Default action: insert character at requested position
+							caretPosition += 1;
+							_attachedTextComponent.text = insertCharAt(
+								String(_attachedTextComponent.text), String(evt.currentTarget.text),
+								int(_attachedTextComponent.selectionActivePosition));
+							break;
+					}
+					
+					try {
+						// Set caret to the end
+						_attachedTextComponent.selectRange(caretPosition, caretPosition);
+						_attachedTextComponent.dispatchEvent(new TextOperationEvent(TextOperationEvent.CHANGE));
+					} catch(e:Error) {
+						trace("VirtualKeyboard --> Error on placing text cursor: " + e.message);
+					}
+				}
+            }
+            
+        ]]>
+    </fx:Script>
+    
+    <s:states>
+        <s:State name="Lowercase"/>
+        <s:State name="Uppercase"/>
+    </s:states>
+	
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	
+	<!-- Keyboard Layout Start -->
+    <s:Label id="btnTilde" x="10" y="10" width="32" height="32" text="`" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="~" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnTilde.width}" x="{btnTilde.x}" y="{btnTilde.y + btnTilde.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+	<s:Label id="btn1" x="50" y="10" width="32" height="32" text="1" color="{ keycolor }"
+			 click="handleButtonClick(event)" text.Uppercase="!" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btn1.width}" x="{btn1.x}" y="{btn1.y + btn1.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btn2" x="90" y="10" width="32" height="32" text="2" color="{ keycolor }"
+			 click="handleButtonClick(event)" text.Uppercase="@" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btn2.width}" x="{btn2.x}" y="{btn2.y + btn2.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btn3" x="130" y="10" width="32" height="32" text="3" color="{ keycolor }"
+			 click="handleButtonClick(event)" text.Uppercase="#" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btn3.width}" x="{btn3.x}" y="{btn3.y + btn3.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btn4" x="170" y="10" width="32" height="32" text="4" color="{ keycolor }"
+			 click="handleButtonClick(event)" text.Uppercase="$" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btn4.width}" x="{btn4.x}" y="{btn4.y + btn4.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btn5" x="210" y="10" width="32" height="32" text="5" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="%" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btn5.width}" x="{btn5.x}" y="{btn5.y + btn5.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btn6" x="250" y="10" width="32" height="32" text="6" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="^" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btn6.width}" x="{btn6.x}" y="{btn6.y + btn6.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btn7" x="290" y="10" width="32" height="32" text="7" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="&amp;" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btn7.width}" x="{btn7.x}" y="{btn7.y + btn7.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btn8" x="330" y="10" width="32" height="32" text="8" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="*" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btn8.width}" x="{btn8.x}" y="{btn8.y + btn8.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btn9" x="370" y="10" width="32" height="32" text="9" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="(" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btn9.width}" x="{btn9.x}" y="{btn9.y + btn9.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btn0" x="410" y="10" width="32" height="32" text="0" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase=")" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btn0.width}" x="{btn0.x}" y="{btn0.y + btn0.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnMinus" x="450" y="10" width="32" height="32" text="-" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="_" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnMinus.width}" x="{btnMinus.x}" y="{btnMinus.y + btnMinus.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnEquals" x="490" y="10" width="32" height="32" text="=" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="+" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnEquals.width}" x="{btnEquals.x}" y="{btnEquals.y + btnEquals.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnDelete" x="530" y="10" width="70" height="32" text="Del"
+			 click="handleButtonClick(event)" buttonMode="true" color="{ keycolor }" textAlign="center"/>
+	<s:Line width="{btnDelete.width}" x="{btnDelete.x}" y="{btnDelete.y + btnDelete.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnEnter" x="530" y="90" width="70" height="32" text="Done"
+			 click="handleButtonClick(event)" buttonMode="true" color="{ keycolor }" textAlign="center"/>
+	<s:Line width="{btnEnter.width}" x="{btnEnter.x}" y="{btnEnter.y + btnEnter.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnRightShift" x="510" y="130" width="70" height="32" text="Shift"
+             click="handleShiftButton(event)" buttonMode="true" color="{ keycolor }" textAlign="center"/>
+	<s:Line width="{btnRightShift.width}" x="{btnRightShift.x}" y="{btnRightShift.y + btnRightShift.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" color.Uppercase="green" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnLeftShift" x="30" y="130" width="70" height="32" text="Shift"
+             click="handleShiftButton(event)" buttonMode="true" color="{ keycolor }" textAlign="center"/>
+	<s:Line width="{btnLeftShift.width}" x="{btnLeftShift.x}" y="{btnLeftShift.y + btnLeftShift.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" color.Uppercase="green" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnTab" x="10" y="50" width="50" height="32" text="Tab" enabled="false"
+			 click="handleButtonClick(event)" buttonMode="true" color="{ keycolor }" textAlign="center"/>
+	<s:Line width="{btnTab.width}" x="{btnTab.x}" y="{btnTab.y + btnTab.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnQ" x="70" y="50" width="32" height="32" text="q" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="Q" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnQ.width}" x="{btnQ.x}" y="{btnQ.y + btnQ.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnW" x="110" y="50" width="32" height="32" text="w" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="W" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnW.width}" x="{btnW.x}" y="{btnW.y + btnW.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnE" x="150" y="50" width="32" height="32" text="e" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="E" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnE.width}" x="{btnE.x}" y="{btnE.y + btnE.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnR" x="190" y="50" width="32" height="32" text="r" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="R" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnR.width}" x="{btnR.x}" y="{btnR.y + btnR.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnT" x="230" y="50" width="32" height="32" text="t" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="T" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnT.width}" x="{btnT.x}" y="{btnT.y + btnT.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnY" x="270" y="50" width="32" height="32" text="y" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="Y" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnY.width}" x="{btnY.x}" y="{btnY.y + btnY.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnU" x="310" y="50" width="32" height="32" text="u" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="U" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnU.width}" x="{btnU.x}" y="{btnU.y + btnU.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnI" x="350" y="50" width="32" height="32" text="i" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="I" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnI.width}" x="{btnI.x}" y="{btnI.y + btnI.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnO" x="390" y="50" width="32" height="32" text="o" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="O" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnO.width}" x="{btnO.x}" y="{btnO.y + btnO.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnP" x="430" y="50" width="32" height="32" text="p" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="P" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnP.width}" x="{btnP.x}" y="{btnP.y + btnP.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnLeftBracket" x="470" y="50" width="32" height="32" text="[" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="{" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnLeftBracket.width}" x="{btnLeftBracket.x}" y="{btnLeftBracket.y + btnLeftBracket.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnRightBracket" x="510" y="50" width="32" height="32" text="]" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="}" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnRightBracket.width}" x="{btnRightBracket.x}" y="{btnRightBracket.y + btnRightBracket.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnBackSlash" x="550" y="50" width="32" height="32" text="\" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="|" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnBackSlash.width}" x="{btnBackSlash.x}" y="{btnBackSlash.y + btnBackSlash.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnA" x="90" y="90" width="32" height="32" text="a" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="A" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnA.width}" x="{btnA.x}" y="{btnA.y + btnA.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnS" x="130" y="90" width="32" height="32" text="s" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="S" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnS.width}" x="{btnS.x}" y="{btnS.y + btnS.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnD" x="170" y="90" width="32" height="32" text="d" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="D" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnD.width}" x="{btnD.x}" y="{btnD.y + btnD.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnF" x="210" y="90" width="32" height="32" text="f" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="F" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnF.width}" x="{btnF.x}" y="{btnF.y + btnF.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnG" x="250" y="90" width="32" height="32" text="g" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="G" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnG.width}" x="{btnG.x}" y="{btnG.y + btnG.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnH" x="290" y="90" width="32" height="32" text="h" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="H" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnH.width}" x="{btnH.x}" y="{btnH.y + btnH.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnJ" x="330" y="90" width="32" height="32" text="j" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="J" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnJ.width}" x="{btnJ.x}" y="{btnJ.y + btnJ.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnK" x="370" y="90" width="32" height="32" text="k" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="K" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnK.width}" x="{btnK.x}" y="{btnK.y + btnK.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnL" x="410" y="90" width="32" height="32" text="l" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="L" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnL.width}" x="{btnL.x}" y="{btnL.y + btnL.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnSemiColon" x="450" y="90" width="32" height="32" text=";" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase=":" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnSemiColon.width}" x="{btnSemiColon.x}" y="{btnSemiColon.y + btnSemiColon.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnQuote" x="490" y="90" width="32" height="32" text="'" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="&quot;" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnQuote.width}" x="{btnQuote.x}" y="{btnQuote.y + btnQuote.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnZ" x="110" y="130" width="32" height="32" text="z" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="Z" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnZ.width}" x="{btnZ.x}" y="{btnZ.y + btnZ.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnX" x="150" y="130" width="32" height="32" text="x" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="X" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnX.width}" x="{btnX.x}" y="{btnX.y + btnX.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnC" x="190" y="130" width="32" height="32" text="c" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="C" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnC.width}" x="{btnC.x}" y="{btnC.y + btnC.height + 1}">
+		 <s:stroke>
+			 <s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		 </s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnV" x="230" y="130" width="32" height="32" text="v" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="V" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnV.width}" x="{btnV.x}" y="{btnV.y + btnV.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+	
+    <s:Label id="btnB" x="270" y="130" width="32" height="32" text="b" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="B" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnB.width}" x="{btnB.x}" y="{btnB.y + btnB.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnSpace" x="150" y="170" width="272" height="32" text="Space"
+			 click="handleButtonClick(event)" buttonMode="true" color="{ keycolor }" textAlign="center"/>
+	<s:Line width="{btnSpace.width}" x="{btnSpace.x}" y="{btnSpace.y + btnSpace.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnN" x="310" y="130" width="32" height="32" text="n" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="N" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnN.width}" x="{btnN.x}" y="{btnN.y + btnN.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnM" x="350" y="130" width="32" height="32" text="m" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="M" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnM.width}" x="{btnM.x}" y="{btnM.y + btnM.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnComma" x="390" y="130" width="32" height="32" text="," color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="&lt;" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnComma.width}" x="{btnComma.x}" y="{btnComma.y + btnComma.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnStop" x="430" y="130" width="32" height="32" text="." color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="&gt;" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnStop.width}" x="{btnStop.x}" y="{btnStop.y + btnStop.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+	
+    <s:Label id="btnForwardSlash" x="470" y="130" width="32" height="32" text="/" color="{ keycolor }"
+             click="handleButtonClick(event)" text.Uppercase="?" buttonMode="true" textAlign="center"/>
+	<s:Line width="{btnForwardSlash.width}" x="{btnForwardSlash.x}" y="{btnForwardSlash.y + btnForwardSlash.height + 1}">
+		<s:stroke>
+			<s:SolidColorStroke color="haloSilver" caps="round" weight="2" alpha="0.6" />
+		</s:stroke>
+	</s:Line>
+		
+</s:BorderContainer>

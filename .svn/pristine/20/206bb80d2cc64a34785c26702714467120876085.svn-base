@@ -1,0 +1,550 @@
+package org.techfusion.view.mediators {
+	
+	// Import default mx Classes
+	import com.developmentarc.core.datastructures.utils.HashTable;
+	
+	import flash.events.Event;
+	import flash.utils.Dictionary;
+	
+	import mx.collections.ArrayCollection;
+	
+	import org.puremvc.as3.interfaces.IMediator;
+	import org.puremvc.as3.interfaces.INotification;
+	import org.puremvc.as3.patterns.mediator.Mediator;
+	import org.techfusion.events.AsteriskEvent;
+	import org.techfusion.view.components.PeersView;
+	
+	public class PeersViewMediator extends Mediator implements IMediator {
+		
+		// Mediator Name
+		public static const NAME:String		= "PeersViewMediator";
+		
+		// Hint Status/Value Hash Map
+		private var chanStatus:HashTable = new HashTable();
+		private var peerStatus:HashTable = new HashTable();
+		
+		public function PeersViewMediator(viewComponent:Object = null) {
+			// Debug
+			trace("PeersViewMediator ==> Constructor");
+			
+			// Populate Peer Status Values			
+			peerStatus.addItem(0,  "Idle");
+			peerStatus.addItem(1,  "In Use");
+			peerStatus.addItem(2,  "Busy");
+			peerStatus.addItem(4,  "Unavailable");
+			peerStatus.addItem(8,  "Ringing");
+			peerStatus.addItem(16, "On Hold");
+			peerStatus.addItem(-1, "Not Found");
+			
+			// Populate Channel Status Values
+			chanStatus.addItem(0,  "Down");
+			chanStatus.addItem(1,  "Rsrvd");
+			chanStatus.addItem(2,  "OffHook");
+			chanStatus.addItem(3,  "Dialing");
+			chanStatus.addItem(4,  "Ring");
+			chanStatus.addItem(5,  "Ringing");
+			chanStatus.addItem(6,  "Up");
+			chanStatus.addItem(7,  "Busy");
+			chanStatus.addItem(8,  "Dialing Offhook");
+			chanStatus.addItem(9,  "Pre-ring");
+			chanStatus.addItem(10, "Unknown");
+			
+			// Pass the viewComponent to the superclass where it will be stored in the inherited viewComponent property
+			super(NAME, viewComponent);
+		}
+		
+		private function get peersView():PeersView {
+			return viewComponent as PeersView;
+		}
+		
+		override public function listNotificationInterests():Array {
+			return [
+				ApplicationFacade.GET_CONFIG,
+				ApplicationFacade.DIAL_ENTRY,
+				ApplicationFacade.DISCONNECT,
+				ApplicationFacade.PEER_STATUS,
+				ApplicationFacade.PEER_ENTRY,
+				ApplicationFacade.EXT_STATUS,
+				ApplicationFacade.NEW_STATE,
+				ApplicationFacade.NEW_CHAN,
+				ApplicationFacade.STATUS,
+				ApplicationFacade.DIAL,
+				ApplicationFacade.HANG
+			];
+		}
+		
+		override public function handleNotification(notification:INotification):void {
+			
+			//trace("################\nIncoming -->\n" + notification.getName() + ":\n" + notification.getBody() + "\n################\n");
+			
+			switch (notification.getName()) {
+				case ApplicationFacade.GET_CONFIG:
+					handleGetConfig();
+					break;
+				case ApplicationFacade.PEER_ENTRY:
+					populatePeers(notification.getBody() as XML);
+					break;
+				case ApplicationFacade.PEER_STATUS:
+					handlePeerStatus(notification.getBody() as XML);
+					break;
+				case ApplicationFacade.EXT_STATUS:
+					handleExtensionStatus(notification.getBody() as XML);
+					break;
+				case ApplicationFacade.NEW_STATE:
+					handleNewStateEvent(notification.getBody() as XML);
+					break;
+				case ApplicationFacade.NEW_CHAN:
+					handleNewChannelEvent(notification.getBody() as XML);
+					break;
+				case ApplicationFacade.STATUS:
+					handleChannelStatus(notification.getBody() as XML);
+					break;
+				case ApplicationFacade.DIAL:
+					handleDialEvent(notification.getBody() as XML);
+					break;
+				case ApplicationFacade.HANG:
+					handleHangEvent(notification.getBody() as XML);
+					break;
+				case ApplicationFacade.DISCONNECT:
+					facade.removeMediator(NAME);
+					break;
+				default:
+					break;
+			}
+		}
+		
+		/**
+		 * Count Dictionary Size
+		 */
+		public static function dictSize(dictionary:flash.utils.Dictionary):int {
+			var n:int = 0;
+			for (var key:* in dictionary) {
+				n++;
+			}
+			return n;
+		}
+		
+		/**
+		 * Reinitialize Data Structure
+		 */
+		private function handleGetConfig():void {
+			// Empty Data Providers
+			peersView.peersIndex = new Dictionary();
+			peersView.peersAddressesIndex = new Dictionary();
+			peersView.peersDataProvider = new ArrayCollection();
+		}
+		
+		/**
+		 * Populate Main View Peers Data Provider
+		 */
+		private function populatePeers(astEvent:XML):void {
+			try {
+				// Build Unique Key
+				var ukey:String = String(astEvent.Channeltype) + "/" + String(astEvent.ObjectName);
+				
+				// Build IP Address Key
+				var ikey:String = String(astEvent.IPaddress)   + ":" + String(astEvent.IPport);
+				
+				// Check Item Doesn't Exists in the Index
+				if(!peersView.peersIndex[ukey]) {
+					// Exit on Limit/Free Edition Match
+					if(ApplicationFacade.APPTYPE && (peersView.peersDataProvider.list.length >= ApplicationFacade.APPLIMPEERS))
+						return
+					// Add Item to List Data Provider
+					peersView.peersDataProvider.list.addItem(new XML(astEvent.toString()));
+					// Adding Item DataProvider Position to Dictionary
+					peersView.peersIndex[ukey] = peersView.peersAddressesIndex[ikey] =
+						peersView.peersDataProvider.list.length;
+					// Refresh Data Provider
+					peersView.peersDataProvider.refresh();
+				}
+			} catch (e:Error) {
+				trace("PeersViewMediator ==> Populate Peer Error: " + e.getStackTrace());
+			}
+		}
+		
+		/**
+		 * Update Main View Peer Status (when HINT/BLF is used)
+		 */
+		private function handlePeerStatus(astEvent:XML):void {
+			
+			// Retrieve Phone Exten to Update
+			var peerNameExp:RegExp	= /(.*)\/(.*)/; 
+			var peerItems:Array		= peerNameExp.exec(astEvent.child("Peer").toString());
+			
+			// Retrieve Peer Data Provider Index
+			var phoneIndex:int = peersView.findPhoneByName(String(peerItems[2]));
+			
+			// Check Phone Index is Valid
+			if(phoneIndex >= 0) {
+				// Retrieve Phone Object
+				var found:XML = XML(peersView.peersDataProvider.list.getItemAt(phoneIndex));
+				
+				// Update Peer Info's
+				if(String(astEvent.child("PeerStatus")) == "Registered") {
+					var inet:Array	= astEvent.child("Address").toString().split(':');
+					found.IPaddress		= inet[0];
+					found.IPport		= inet[1];
+				} else if(String(astEvent.child("PeerStatus")) == "Unregistered") {
+					found.IPaddress		= astEvent.child("Cause").toString();
+					found.Status		= "UNKNOWN";
+					found.IPport		= "0";
+				}
+				
+				// Set Status Up
+				found.Status			= String(astEvent.child("PeerStatus"));
+				
+				// Replace original ones
+				peersView.peersDataProvider.list.setItemAt(found, phoneIndex);
+				
+				// Refresh Data Provider
+				peersView.peersDataProvider.refresh();
+			}
+			
+		}
+		
+		/**
+		 * Handle Channel State Update
+		 */
+		private function handleNewStateEvent(astEvent:XML):void {
+			
+			// Retrieve Event Channel Name
+			var channelName:String = astEvent.child("Channel").toString();
+			
+			// Find Related Extension If Present
+			if(channelName.length > 0) {
+				// Normal Channel RegEx
+				var channelRegExp:RegExp	= /(.*)\/(.*)-(.*)/;
+				// Channel/Context Regex
+				var chanCtxRegExp:RegExp	= /(.*)\/(.*)@(.*)/;
+				
+				// Check & Split Channel Name
+				var channelItems:Array		= null;
+				if(channelName.match(chanCtxRegExp)) {
+					channelItems = chanCtxRegExp.exec(channelName);
+				} else {
+					channelItems = channelRegExp.exec(channelName);
+				}
+				
+				// Change Phones Layout Status
+				var phoneIndex:int = peersView.findPhoneByName(String(channelItems[2]));
+
+				// Check Phone Index is Valid
+				if(phoneIndex >= 0) {
+					// Retrieve Phone Object
+					var found:XML = XML(peersView.peersDataProvider.list.getItemAt(phoneIndex));
+					
+					// Build Channel Name => Step 1: Convert Local Channel to Sip Channel
+					var replaceChars:RegExp = /Local\//g;
+					var nodeTech:String = String(XML(peersView.peersDataProvider.list.getItemAt(phoneIndex)).Channeltype) + "/";
+					var nodeName:String	= String(channelItems[0]).replace(replaceChars, nodeTech);
+					
+					// Build Channel Name => Step 2: Replace all channel chars with an underscore
+					replaceChars = /(\/|-|;|@)/g;
+					nodeName = String(nodeName.replace(replaceChars, "_"));
+					
+					// Update Node
+					if(String(found.ChannelsList.channel.(chanName==nodeName).chanName).length) {
+						// Update Channel
+						found.ChannelsList.channel.(chanName==nodeName).chanOrig		= String(channelItems[0]);
+						found.ChannelsList.channel.(chanName==nodeName).chanstate		= String(astEvent.child("ChannelState"));
+						found.ChannelsList.channel.(chanName==nodeName).callidname		= String(astEvent.child("CallerIDName"));
+						found.ChannelsList.channel.(chanName==nodeName).chanstatedesc	= String(astEvent.child("ChannelStateDesc"));
+						
+						// Handle CallerId for Incoming Calls
+						if(String(astEvent.child("ConnectedLineNum")).length) {
+							found.OECallerID	= String(astEvent.child("ConnectedLineNum"));
+							found.ChannelsList.channel.(chanName==nodeName).callidnum	= String(astEvent.child("ConnectedLineNum"));
+						}
+						
+					} else {
+						// Build new Channel Node
+						var xmlString:String;
+						xmlString =  "<channel id=\"" + nodeName + "\">" +
+									 "  <chanName>"   + nodeName + "</chanName>" +
+									 "  <chanOrig>"   + String(channelItems[0]) + "</chanOrig>" +
+									 "  <chanstate>"  + String(astEvent.child("ChannelState")) + "</chanstate>";
+							
+						// Handle CallerId for Incoming Calls
+						if(String(astEvent.child("ConnectedLineNum")).length) {
+							found.OECallerID = String(astEvent.child("ConnectedLineNum"));
+							xmlString += "  <callidnum>" + String(astEvent.child("ConnectedLineNum")) + "</callidnum>";
+						} else {
+							found.OECallerID = String(astEvent.child("CallerIDNum"));
+							xmlString += "  <callidnum>" + String(astEvent.child("CallerIDNum")) + "</callidnum>";
+						}
+							
+						xmlString += "  <callidname>"    + String(astEvent.child("CallerIDName"))     + "</callidname>"    +
+									 "  <chanstatedesc>" + String(astEvent.child("ChannelStateDesc")) + "</chanstatedesc>" +
+									 "</channel>";
+						
+						// Convert String to XML
+						var newNode:XML = new XML(xmlString);
+						
+						// Append To Root Node
+						found.ChannelsList.channel	+= newNode;
+					}
+					
+					// Update Last Channel State
+					found.LastChannel	= String(astEvent.child("ChannelStateDesc"));
+					
+					// Update Node Status
+					found.Status = String(astEvent.child("ChannelStateDesc"));
+					
+					// Replace With Original one
+					peersView.peersDataProvider.list.setItemAt(found, phoneIndex);
+					
+					// Refresh Data Provider
+					peersView.peersDataProvider.refresh();
+				}
+			}
+		}
+		
+		/**
+		 * Update Main View Peer Extension Status
+		 */
+		private function handleExtensionStatus(astEvent:XML):void {
+			
+			// Change Phones Layout Status			
+			var phoneIndex:int = peersView.findPhoneByName(String(astEvent.child("Exten")));
+			
+			// Check Phone Index is Valid
+			if(phoneIndex >= 0) {
+				// Retrieve Phone Object
+				var found:XML = XML(peersView.peersDataProvider.list.getItemAt(phoneIndex));
+				
+				// Change It
+				found.Status = peerStatus.getItem(String(astEvent.child("Status")));
+				
+				// Update it
+				peersView.peersDataProvider.list.setItemAt(found, phoneIndex);
+				
+				// Refresh Data Provider
+				peersView.peersDataProvider.refresh();
+			}
+			
+		}
+		
+		/**
+		 * Update Main View Peer related Channel
+		 */
+		private function handleNewChannelEvent(astEvent:XML):void {
+			// Retrieve Event Channel Name
+			var channelName:String = astEvent.child("Channel").toString();
+
+			// Find Related Extension If Present
+			if(channelName.length > 0) {
+				
+				var channelRegExp:RegExp	= /(.*)\/(.*)-(.*)/; 
+				var channelItems:Array		= channelRegExp.exec(channelName);
+				
+				// Change Phones Layout Status			
+				var phoneIndex:int = peersView.findPhoneByName(String(channelItems[2]));
+				
+				// Check Phone Index is Valid
+				if(phoneIndex >= 0) {
+					// Retrieve Phone Object
+					var found:XML = XML(peersView.peersDataProvider.list.getItemAt(phoneIndex));
+					
+					// Build Channel Name
+					var replaceChars:RegExp = /(\/|-)/g;
+					var nodeName:String	= String(channelItems[0]).replace(replaceChars, "_");
+					
+					// Build new Channel Node					
+					var newNode:XML = new XML(
+						"<channel id=\""    + nodeName                                   + "\">"              +
+						"  <chanName>"      + nodeName                                   + "</chanName>"      +
+						"  <chanOrig>"      + String(channelItems[0])                    + "</chanOrig>"      +
+						"  <chanstate>"     + String(astEvent.child("ChannelState"))     + "</chanstate>"     +
+						"  <callidnum>"     + String(astEvent.child("Exten"))            + "</callidnum>"     +
+						"  <chanstatedesc>" + String(astEvent.child("ChannelStateDesc")) + "</chanstatedesc>" +						
+						"</channel>" 
+					);
+					
+					// Append To Root Node
+					found.ChannelsList.channel	+= newNode;
+					
+					// Change Last Channel Information
+					found.LastChannel	= String(astEvent.child("ChannelStateDesc"));
+					found.OECallerID	= String(astEvent.child("Exten"));
+					
+					// Replace With Original one
+					peersView.peersDataProvider.list.setItemAt(found, phoneIndex);
+					
+					// Refresh Data Provider
+					peersView.peersDataProvider.refresh();
+				}
+			}
+		}
+		
+		private function handleChannelStatus(astEvent:XML):void {
+			// Request For Channel Status
+			sendNotification(ApplicationFacade.ASTEVENT, null, AsteriskEvent.GET_CHAN_STATUS);
+		}
+		
+		/**
+		 * Update Peers Status based on Dial Event
+		 */
+		private function handleDialEvent(astEvent:XML):void {
+			if(String(astEvent.child("SubEvent"))) {
+				// Retrieve Source/Destination Channel 
+				var channelRegExp:RegExp	= /(.*)\/(.*)-(.*)/;
+				var replaceChars:RegExp		= /(\/|-)/g;
+				var srcChannel:Array		= channelRegExp.exec(String(astEvent.child("Channel")));
+				var dstChannel:Array		= channelRegExp.exec(String(astEvent.child("Destination")));
+				
+				// Build Channel Name
+				var srcChanName:String		= String(astEvent.child("Channel")).replace(replaceChars, "_");
+				var dstChanName:String		= String(astEvent.child("Destination")).replace(replaceChars, "_");
+				
+				// Check for Caller (if local)
+				var phoneSrcIndex:Number = -1;
+				if(srcChannel) phoneSrcIndex = peersView.findPhoneByName(String(srcChannel[2]));
+				
+				// Check for Callee (if local)
+				var phoneDstIndex:Number = -1;
+				if(dstChannel) phoneDstIndex = peersView.findPhoneByName(String(dstChannel[2]));
+				
+				// Update Extension Objects
+				var found:XML = null;
+				
+				if(phoneSrcIndex >= 0) {
+					// Retrieve Phone Object
+					found = XML(peersView.peersDataProvider.list.getItemAt(phoneSrcIndex));
+					
+					// Update Channel Direction
+					if(String(astEvent.child("SubEvent")) == "Begin") {
+						found.ChannelsList.channel.(chanName==srcChanName).chanType = "outgoing";
+					} else {
+						found.ChannelsList.channel.(chanName==srcChanName).chanType = "closed";
+					}
+					
+					// Replace Object
+					peersView.peersDataProvider.list.setItemAt(found, phoneSrcIndex);
+					
+					// Refresh Data Provider
+					peersView.peersDataProvider.refresh();
+				}
+				
+				if(phoneDstIndex >= 0) {
+					// Retrieve Phone Object
+					found = XML(peersView.peersDataProvider.list.getItemAt(phoneDstIndex));
+					
+					// Update Channel Direction
+					if(String(astEvent.child("SubEvent")) == "Begin") {
+						found.ChannelsList.channel.(chanName==dstChanName).chanType = "ingoing";
+					} else {
+						found.ChannelsList.channel.(chanName==dstChanName).chanType = "closed";
+					}
+					
+					// Replace Object
+					peersView.peersDataProvider.list.setItemAt(found, phoneDstIndex);
+					
+					// Refresh Data Provider
+					peersView.peersDataProvider.refresh();
+				}
+			}
+		}
+		
+		/**
+		 * Update Main View Peers Status based on Hangup Event
+		 */
+		private function handleHangEvent(astEvent:XML):void {
+			// Retrieve Event Channel Name
+			var channelName:String = astEvent.child("Channel").toString();
+			
+			// Find Related Extension If Present
+			if(channelName.length > 0) {
+				// Check for Channel Type
+				var channelRegExp:RegExp	= /(.*)\/(.*)-(.*)/; 
+				var channelItems:Array		= channelRegExp.exec(channelName);
+				
+				// Change Phones Layout Status			
+				var phoneIndex:int = peersView.findPhoneByName(String(channelItems[2]));
+				
+				// Check Phone Index is Valid
+				if(phoneIndex >= 0) {
+					// Retrieve Phone Object
+					var found:XML = XML(peersView.peersDataProvider.list.getItemAt(phoneIndex));
+					
+					// Build Channel Name
+					var replaceChars:RegExp = /(\/|-)/g;
+					var nodeName:String	= String(channelItems[0]).replace(replaceChars, "_");
+					
+					// Update Node
+					if(String(found.ChannelsList.channel.(chanName==nodeName).chanName).length) {
+						// Delete Channel Entry
+						for each (var match:XML in found.ChannelsList.channel.(chanName==nodeName)) delete found.ChannelsList.channel[match.childIndex()];
+					}
+					
+					// Compleately remove ChannelsList child node
+					delete found.ChannelsList;
+					
+					// Change Global Peer Status if no channels exists
+					if(!countNodeChilds(found.ChannelsList)) {
+						found.Status = peerStatus.getItem(0);
+						
+						// Purge Last Channel Information
+						delete found.LastChannel;
+						delete found.OECallerID;
+					}
+					
+					// Update it
+					peersView.peersDataProvider.list.setItemAt(found, phoneIndex);
+					
+					// Refresh Data Provider
+					peersView.peersDataProvider.refresh();
+				}
+			}
+		}
+		
+		protected function parkAction(event:AsteriskEvent):void {
+			// Send Disconnect Notification
+			sendNotification(ApplicationFacade.ASTEVENT, event, AsteriskEvent.PARK);
+		}
+		
+		protected function hangupAction(event:AsteriskEvent):void {
+			// Send Disconnect Notification
+			sendNotification(ApplicationFacade.ASTEVENT, event, AsteriskEvent.HANGUP);
+		}
+		
+		protected function logoutAction(event:Event):void {
+			// Send Disconnect Notification
+			sendNotification(ApplicationFacade.DISCONNECT);
+		}
+		
+		/**
+		 * Return Node Childs Number
+		 */
+		private function countNodeChilds(node:XMLList):int {
+			var counter:int = 0;
+			
+			for each (var child:XML in node) {
+				if(String(child).length) counter++;
+			}
+			
+			return(counter);
+		}
+		
+		override public function onRegister():void {
+			// Register Event Handlers
+			peersView.addEventListener(AsteriskEvent.PARK, parkAction);
+			peersView.addEventListener(AsteriskEvent.HANGUP, hangupAction);
+			peersView.addEventListener(ApplicationFacade.DISCONNECT, logoutAction);
+			
+			// Debug
+			trace("PeersViewMediator ==> PeersViewMediator Registered");
+		}
+		
+		override public function onRemove():void {
+			// Unregister Event Handlers
+			peersView.removeEventListener(AsteriskEvent.PARK, parkAction);
+			peersView.removeEventListener(AsteriskEvent.HANGUP, hangupAction);
+			peersView.removeEventListener(ApplicationFacade.DISCONNECT, logoutAction);
+			
+			// Debug
+			trace("PeersViewMediator ==> PeersViewMediator Unregistered");
+		}
+		
+	}
+}

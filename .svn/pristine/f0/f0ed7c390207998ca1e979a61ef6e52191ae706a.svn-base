@@ -1,0 +1,288 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:ui="http://www.kapit.fr/flex4/ui"
+		xmlns:fx="http://ns.adobe.com/mxml/2009"
+		xmlns:mx="library://ns.adobe.com/flex/mx"
+		xmlns:classed="org.techfusion.view.components.classed.*"
+		xmlns:s="library://ns.adobe.com/flex/spark" left="0" right="0" top="0" bottom="0"
+		skinClass="assets.skins.backgroundedView" actionBarVisible="false" destructionPolicy="never"
+		viewActivate="{ viewActivate(); }" viewDeactivate="{ viewDeactivate(); }" addedToStage="{ initComponents(); }">
+
+	<s:states>
+		<s:State name="Base"/>
+	</s:states>
+	
+	<s:transitions>
+		<s:Transition fromState="*" toState="*">
+			<s:Resize target="{ mainLoginWindow }"/>
+		</s:Transition>
+	</s:transitions>
+	
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+		<s:Rotate id="actionRotate" angleFrom="0" angleTo="45" duration="500" target="{ appLogo }"
+				  autoCenterTransform="true"/>
+	</fx:Declarations>
+
+	<fx:Script>
+		<![CDATA[
+			import mx.collections.ArrayCollection;
+			
+			import org.puremvc.as3.patterns.facade.Facade;
+			import org.techfusion.events.DatabaseViewEvent;
+			import org.techfusion.events.LoginViewEvent;
+			import org.techfusion.view.mediators.LoginViewMediator;
+			
+			// Retrieve Facade Instance
+			private var facade:Facade = ApplicationFacade.getInstance();
+			
+			[Bindable]
+			public  var credentialsDataProvider:ArrayCollection = new ArrayCollection();
+			
+			// Credentials Storing Flag
+			public  var storeCredentials:Boolean = false;
+			
+			// Initialize View
+			private function viewActivate():void {
+				// Registering Mediators
+				if(!facade.hasMediator(LoginViewMediator.NAME)) {
+					facade.registerMediator(new LoginViewMediator(this));
+				}
+				
+				// Select None
+				ddlSavedCredentials.selectedIndex = -1;
+				
+				// Check if Form is Already Valid
+				credentialsChange();
+			}
+			
+			/**
+			 * Setup view based on device capabilities
+			 */
+			private function initComponents():void {
+				// Change App Logo in Free Edition
+				if(ApplicationFacade.APPTYPE) 
+					appLogo.source = '/assets/images/login_intro_free.png';
+				
+				// Scale Display Object Based on minimum allowed Height
+				if(stage.stageHeight <= 640) {
+					appLogo.height	= 71;
+					appLogo.width	= 220;
+					appLogo.x		= getRect(txtUsername).right - (appLogo.width / 2);
+					appLogo.y		= txtServer.y + mainLoginWindow.top;
+					
+					btnConnect.height	= 55;
+					btnConnect.width	= 110;
+				} else {
+					// Dinamically Reposition App Logo
+					appLogo.x = getRect(txtUsername).right - (appLogo.width / 2);
+					appLogo.y = txtServer.y + mainLoginWindow.top;
+				}
+				
+				// Rotate Logo
+				actionRotate.play();
+			}
+			
+			// DeInitialize View
+			private function viewDeactivate():void {
+				// UnRegistering Mediators
+				if(facade.hasMediator(LoginViewMediator.NAME)) {
+					facade.removeMediator(LoginViewMediator.NAME);
+				}
+			}
+			
+			/**
+			 * Update Form on Credentials Select
+			 */
+			public function credentialSelect():void {
+				if(ddlSavedCredentials.selectedIndex >= 0) {
+					// Retrieve Credentials Object
+					var credentials:Object = ddlSavedCredentials.selectedItem;
+					if(credentials != null) {
+						// Update Form
+						txtUsername.text	= credentials.username;
+						txtPassword.text	= credentials.passwd;
+						txtServer.text		= credentials.server;
+						
+						// Check For Credentials Validity
+						credentialsChange();
+						
+						// Setup Stored Credentials Flag
+						chkSaveBox.selected = true;
+					}
+				}
+			}
+			
+			/**
+			 * Validate Form
+			 */
+			private function credentialsChange():void {
+				// Reset Store Credentials if selected
+				if(chkSaveBox.selected) chkSaveBox.selected = false;
+				
+				// IP Address Validator
+				var ptrn:RegExp		= new RegExp("^([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.([01]?\\d\\d?|2[0-4]\\d|25[0-5])$");
+				var ptrn2:RegExp	= new RegExp("(?=^.{1,254}$)(^(?:(?!\d+\.|-)[a-zA-Z0-9_\-]{1,63}(?<!-)\.?)+(?:[a-zA-Z]{2,})$)");
+				
+				// Data Validation
+				if(
+					(ptrn.test(txtServer.text) || ptrn2.test(txtServer.text)) &&
+					(txtUsername.text.length > 0 && txtPassword.text.length > 0 && txtServer.text.length > 0)
+				) {
+					chkSaveBox.enabled = btnConnect.enabled = true;
+						
+				} else {
+					chkSaveBox.enabled = btnConnect.enabled = false;
+				}
+			}
+
+			/**
+			 * Handle Login Button Event
+			 */
+			private function onConnect():void {
+				// Lock interface -- prevent multiple click
+				mainLoginWindow.enabled = false;
+				
+				// Dispatch Login Event
+				dispatchEvent(new LoginViewEvent(LoginViewEvent.LOGIN, txtUsername.text, txtPassword.text, txtServer.text)); 
+			}
+			
+			/**
+			 * Save/Remove Credentials
+			 */
+			protected function chkSaveBox_clickHandler(event:MouseEvent):void {				
+				// Set Credentials store flag to True
+				// or remove a saved credential
+				if(!chkSaveBox.selected) {
+					// Retrieve Selected Credentials
+					var credentials:Object = ddlSavedCredentials.selectedItem;
+					
+					if(
+						String(credentials.username).length > 0 &&
+						String(credentials.passwd).length   > 0 &&
+						String(credentials.server).length   > 0 
+					) {
+						// Dispatch Remove Event
+						dispatchEvent(new DatabaseViewEvent(
+							ApplicationFacade.DB_DELCREDENTS, ddlSavedCredentials.selectedItem
+						));	
+						// Remove Entry from DataProvider
+						credentialsDataProvider.removeItemAt(ddlSavedCredentials.selectedIndex);
+						credentialsDataProvider.refresh();
+					}
+
+					// Reset Form
+					ddlSavedCredentials.selectedIndex = 0;
+					txtUsername.text	= "";
+					txtPassword.text	= "";
+					txtServer.text		= "";
+					storeCredentials	= false;
+					
+				} else {
+					storeCredentials = true;
+				}
+			}
+		]]>
+	</fx:Script>
+	
+	<!-- Drop Application Logo [ Align to credentials form ] -->
+	<s:Image id="appLogo" source="@Embed('/assets/images/login_intro.png')" 
+			 y="{ txtPassword.y }" smooth="true" smoothingQuality="default"/>
+	
+	<!-- Main Login Container -->
+	<s:Group id="mainLoginWindow" alpha="1" width="95%" horizontalCenter="0" verticalCenter="0" includeIn="Base">
+		
+		<s:layout>
+			<s:VerticalLayout gap="0" horizontalAlign="center" verticalAlign="middle"
+							  paddingRight="10" paddingBottom="10" paddingLeft="10" paddingTop="0"/>
+		</s:layout>
+	
+		<s:VGroup horizontalAlign="center" verticalAlign="middle" width="50%" height="100%">
+		
+			<s:Label text="Credentials" fontSize="16" color="0xFFFFFF" width="100%"/>
+			<s:BorderContainer id="credentialsContainer" width="100%" backgroundAlpha="0" borderVisible="false">
+				
+				<s:layout>
+					<s:VerticalLayout horizontalAlign="center" verticalAlign="middle" gap="2"/>
+				</s:layout>
+
+				<classed:CustomTextInput id="txtUsername" width="100%" height="45" borderVisible="false" skinClass="assets.skins.skinnedTextInput"
+										 fontSize="24" prompt="Username" textAlign="center" needsSoftKeyboard="true" autoCapitalize="none" returnKeyLabel="done"
+										 autoCorrect="false" change="{ credentialsChange(); }" enabled="true" fontFamily="_sans" enter="{ stage.focus = null; }"
+										 sideImage="@Embed('/assets/images/members.png')" color="0xFFFFFF"/>
+				
+				<s:Line width="95%">
+					<s:stroke>
+						<s:SolidColorStroke color="gray" caps="round" weight="1" alpha="0.2" />
+					</s:stroke>
+				</s:Line>
+				
+				<classed:CustomTextInput id="txtPassword" width="100%" height="45" borderVisible="false" skinClass="assets.skins.skinnedTextInput"
+										 autoCorrect="false" change="{ credentialsChange(); }" displayAsPassword="true" enabled="true" enter="{ stage.focus = null; }"
+										 fontFamily="_sans" fontSize="24" prompt="Password" textAlign="center" needsSoftKeyboard="true" returnKeyLabel="done" autoCapitalize="none"
+										 sideImage="@Embed('/assets/images/unlock.png')" color="0xFFFFFF"/>
+			
+				<s:Line width="95%">
+					<s:stroke>
+						<s:SolidColorStroke color="gray" caps="round" weight="1" alpha="0.2" />
+					</s:stroke>
+				</s:Line>
+				
+				<classed:CustomTextInput id="txtServer" width="100%" height="45" borderVisible="false" skinClass="assets.skins.skinnedTextInput"
+										 fontSize="24" prompt="Server Address/FQDN" textAlign="center" needsSoftKeyboard="true" enter="{ stage.focus = null; }"
+										 change="{ credentialsChange(); }" enabled="true" fontFamily="_sans"  autoCapitalize="none" returnKeyLabel="done" softKeyboardType="url"
+										 sideImage="@Embed('/assets/images/home.png')" color="0xFFFFFF"/>
+				
+			</s:BorderContainer>
+			
+		</s:VGroup>
+		
+		<s:VGroup horizontalAlign="center" verticalAlign="middle" width="50%" height="100%">
+		
+			<s:Label id="lblSessions" text="{ int(credentialsDataProvider.length - 1) + ' Stored Session/s' }" width="100%" fontSize="16"
+					 color="0xFFFFFF"/>
+			<s:BorderContainer id="controlsContainer" width="100%" height="100%" cornerRadius="5" alpha="0.8" contentBackgroundAlpha="0">
+				<s:layout>
+					<s:VerticalLayout horizontalAlign="center" verticalAlign="middle"
+									  paddingTop="5" paddingBottom="5" paddingLeft="5" paddingRight="5"/>
+				</s:layout>
+				
+				<s:List pageScrollingEnabled="false" useVirtualLayout="true" contentBackgroundAlpha="0" allowMultipleSelection="false" 
+						id="ddlSavedCredentials" width="100%" height="220" dataProvider="{ credentialsDataProvider }" borderVisible="false"
+						click="{ credentialSelect(); }" itemRenderer="org.techfusion.view.renderers.loginSessionItemRenderer" verticalScrollPolicy="off">
+					
+					<s:layout>
+						<s:HorizontalLayout useVirtualLayout="true" verticalAlign="middle" horizontalAlign="center" gap="2"/>
+					</s:layout>
+				</s:List>
+	
+				<s:Line width="95%">
+					<s:stroke>
+						<s:SolidColorStroke color="gray" caps="round" weight="2" alpha="0.2"/>
+					</s:stroke>
+				</s:Line>
+				
+				<s:HGroup verticalAlign="middle" horizontalAlign="center">
+				
+					<s:CheckBox id="chkSaveBox" click="{ chkSaveBox_clickHandler(event); }" color="#848485" fontSize="14"
+								skinClass="assets.skins.CustomCheckBoxSkin" selected="false"/>
+					
+					<s:Spacer width="10" visible="false"/>
+					
+					<s:Image id="btnConnect" click="{ onConnect(); }" enabled="false" source="@Embed('/assets/images/connect.png')"
+							 buttonMode="true" includeIn="Base" smooth="true" smoothingQuality="default"/>
+					
+				</s:HGroup>
+				
+				<s:Line width="95%">
+					<s:stroke>
+						<s:SolidColorStroke color="gray" caps="round" weight="2" alpha="0.2" />
+					</s:stroke>
+				</s:Line>
+				
+			</s:BorderContainer>
+		
+		</s:VGroup>
+		
+	</s:Group>
+	
+</s:View>

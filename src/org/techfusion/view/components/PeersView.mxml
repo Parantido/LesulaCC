@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:ui="http://www.kapit.fr/flex4/ui"
+		xmlns:fx="http://ns.adobe.com/mxml/2009"
+		xmlns:mx="library://ns.adobe.com/flex/mx"
+	    xmlns:s="library://ns.adobe.com/flex/spark"
+	    xmlns:view="org.techfusion.view.components.*"
+		skinClass="assets.skins.backgroundedView" actionBarVisible="true" contentBackgroundAlpha="0"
+		destructionPolicy="never" viewActivate="{ viewActivate(); }" viewDeactivate="{ viewDeactivate(); }">
+	
+	<s:layout>
+		<s:BasicLayout/>
+	</s:layout>
+	
+	<s:states>
+		<s:State name="Base"/>
+	</s:states>
+	
+	<s:titleContent>
+		<s:Label id="mainTitle" fontFamily="Ubuntu" fontSize="22" fontWeight="bold" color="0xFFFFFF" text="Welcome to Lesula Contact Center"/>
+		<s:Line visible="false" height="1%" width="100%"/>	
+	</s:titleContent>
+	
+	<s:actionContent>
+		<s:CalloutButton id="showView" icon="@Embed('/assets/images/settings.png')">
+			<s:calloutContent>
+				<s:VGroup width="250" verticalAlign="middle" horizontalAlign="left"
+						  paddingLeft="5" paddingRight="10" paddingBottom="10" paddingTop="10">
+					<s:RadioButton id="rbShowAll" label="Show All"        click="{ searchDataProvider(event); }" selected="true"/>
+					<s:RadioButton id="rbShowBkm" label="Show Bookmarked" click="{ searchDataProvider(event); }" selected="false"/>
+					<s:RadioButton id="rbHideOff" label="Hide Offline"    click="{ searchDataProvider(event); }" selected="false"/>
+					<s:RadioButton id="rbShowWrk" label="Show Working"    click="{ searchDataProvider(event); }" selected="false"/>
+				</s:VGroup>
+			</s:calloutContent>
+		</s:CalloutButton>
+		<s:Button icon="@Embed('/assets/images/logout.png')" toolTip="Logout" click="{ dispatchEvent(new Event(ApplicationFacade.DISCONNECT)); }"/>
+	</s:actionContent>
+	
+	<s:transitions>
+		<s:Transition fromState="*" toState="*">
+			<s:Fade target="{baseMainContainer}" duration="700" alphaFrom="0.0" alphaTo="1.0" />
+		</s:Transition>
+	</s:transitions>
+	
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import mx.collections.ArrayCollection;
+			import mx.events.CollectionEvent;
+			
+			import spark.collections.Sort;
+			import spark.collections.SortField;
+			
+			import org.puremvc.as3.patterns.facade.Facade;
+			import org.techfusion.events.LoginViewEvent;
+			import org.techfusion.view.mediators.PeersViewMediator;
+
+			// Retrieve Facade Instance
+			private var facade:Facade = ApplicationFacade.getInstance();
+			
+			// Bindable Data Providers
+			[Bindable] public var peersIndex:Dictionary = new Dictionary();
+			[Bindable] public var peersAddressesIndex:Dictionary = new Dictionary();
+			[Bindable] public var peersDataProvider:ArrayCollection = new ArrayCollection();
+			
+			// Channels Buffer
+			public var channelIndex:Dictionary					= null;
+			public var channelReference:Dictionary				= null;
+			
+			/**
+			 * On View Activate Actions
+			 */
+			private function viewActivate(): void {
+				// Registering Mediators
+				if(!facade.hasMediator(PeersViewMediator.NAME)) {
+					facade.registerMediator(new PeersViewMediator(this));
+				}
+				
+				// Apply Filter Function to Peers DataProvider
+				peersDataProvider.filterFunction = peersFilterFunction;
+				
+				// Apply Event Listener
+				peersDataProvider.addEventListener(CollectionEvent.COLLECTION_CHANGE, handleCollectionChange);
+			}
+			
+			/**
+			 * On View DeActivate Actions
+			 */
+			private function viewDeactivate(): void {
+			}
+			
+			/**
+			 * Sort Data Peers Provider
+			 */
+			private function sortPeers(evt:CollectionEvent):void {
+				var dataSortField:SortField = new SortField();
+				dataSortField.name = "Status";
+				dataSortField.numeric = false;
+				
+				var dataSort:Sort = new Sort();
+				dataSort.fields   = [dataSortField];
+				
+				peersDataProvider.sort = dataSort;
+				peersDataProvider.refresh();
+			}
+			
+			/**
+			 * Return Peer DataProvider Index by Name
+			 */
+			public function findPhoneByName(name:String, debug:Boolean=false):int {
+				for(var i:Number = 0; i < peersDataProvider.list.length; i++) {
+					// Get Temporary Object View
+					// HINT: .list access raw unfiltered dataProvider Items
+					var objTmp:Object = peersDataProvider.list.getItemAt(i);
+					
+					// Debug
+					if(debug) trace("Debug::> Is: " +objTmp.ObjectName+ " equals to: " +name+ " ?");
+						
+					// Check if PhoneName is The Same
+					if(objTmp.ObjectName == name) {
+						// Debug
+						if(debug) trace("Debug::> Yes!!! Returning index " +i+ "!");
+						return(i);
+					}
+				}
+				
+				// No Match
+				return(-1);
+			}
+			
+			/**
+			 * Return Peer XML Object with a particular Ip Port
+			 */
+			public function findPeerByIpPort(ipport:String, debug:Boolean=false):XML {
+				if(peersAddressesIndex[ipport] != null) {
+					return(peersDataProvider.getItemAt(peersAddressesIndex[ipport]) as XML);
+				}
+				
+				// No Match
+				return(null);
+			}
+			
+			/**
+			 * Dispatch Disconnect Event
+			 */
+			private function disconnectAction():void {
+				// Dispatch Disconnect Event
+				dispatchEvent(new LoginViewEvent(LoginViewEvent.DISCONNECT));
+			}
+			
+			/**
+			 * Peers View Filter Function
+			 */
+			protected function peersFilterFunction(obj:XML):Boolean {
+				if(rbShowAll.selected) {
+					return(true);
+				} else if(rbShowBkm.selected) {
+					if(
+						(String(obj.Status) != "UNKNOWN") && (String(obj.Status) != "Unregistered") &&
+						(String(obj.Status) != "Unavailable")
+					) {
+						var credentials:Object = ApplicationFacade.getInstance()._credentials;
+						var unique_key:String = String(obj.ObjectName) + "@" + credentials.server;
+						if(ApplicationFacade.getInstance()._bookmarks[unique_key]) return true;
+					}
+				} else if(rbShowWrk.selected) {
+					if(
+						String(obj.Status) != "Idle"        && String(obj.Status) != "UNKNOWN"       &&
+						String(obj.Status) != "Unmonitored" && String(obj.Status) != "Registered"    &&
+						String(obj.Status) != "Unavailable" && String(obj.Status) != "Unregistered"  &&
+						String(obj.Status) != "UNREACHABLE" && String(obj.Status) != "Reachable"     &&
+						String(obj.Status).search("OK") == -1
+					) {
+						return(true);
+					}
+				} else if(rbHideOff.selected) {
+					if(
+						(String(obj.Status) != "UNKNOWN") && (String(obj.Status) != "Unregistered") &&
+						(String(obj.Status) != "Unavailable")
+					)
+						return true;
+				} else {
+					// Startup Position
+					return(true);
+				}
+			
+				// Don't show element if something
+				// goes wrong
+				return(false);
+			}
+			
+			/**
+			 * Trigger Filter Function on Peers Data Provider
+			 */
+			protected function searchDataProvider(evt:Event):void {
+				// Refresh DataProvider
+				peersDataProvider.refresh();
+				// Close Callout DropDown
+				showView.closeDropDown();
+			}
+			
+			protected function handleCollectionChange(event:CollectionEvent):void {
+				// Change Main Title
+				if(peersDataProvider.list.length != peersDataProvider.length)
+					mainTitle.text = "Displaying " + peersDataProvider.length + " filtered peer/s";
+				else
+					mainTitle.text = "Displaying " + peersDataProvider.length + " peer/s";
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<s:BorderContainer id="baseMainContainer" width="100%" height="100%"
+					   cornerRadius="0" contentBackgroundAlpha="0" backgroundAlpha="0">
+		
+		<s:List contentBackgroundAlpha="0"
+				dataProvider="{ peersDataProvider }"
+				alternatingItemColors="[#ffffff,#ebebeb]"
+				pageScrollingEnabled="false" useVirtualLayout="true"
+				allowMultipleSelection="false" borderVisible="false"
+				itemRenderer="org.techfusion.view.renderers.PeerRenderer"
+				id="peersList" includeIn="Base" width="100%" height="100%">
+			
+			<s:layout>
+				<s:TileLayout rowAlign="justifyUsingHeight" useVirtualLayout="true"
+							  columnAlign="justifyUsingWidth" horizontalAlign="center"
+							  paddingBottom="10" paddingLeft="10" paddingRight="10" paddingTop="10"
+							  verticalAlign="middle" verticalGap="5" horizontalGap="2" orientation="rows"/>
+			</s:layout>
+			
+		</s:List>
+		
+		<s:Group id="emptyMsgBox" left="0" right="0" top="0" bottom="0" alpha=".7"
+				 visible="{!peersDataProvider.length}" includeInLayout="{!peersDataProvider.length}">
+			
+			<s:Rect left="0" right="0" top="0" bottom="0">
+				<s:fill>
+					<s:SolidColor color="0x000000" />
+				</s:fill>
+			</s:Rect>
+			
+			<s:Label text="No Peers found ..." color="0xffffff" verticalCenter="0" horizontalCenter="0" />
+		</s:Group>
+		
+	</s:BorderContainer>
+</s:View>

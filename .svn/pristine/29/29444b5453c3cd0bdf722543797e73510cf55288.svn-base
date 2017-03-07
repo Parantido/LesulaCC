@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View backgroundAlpha="0"
+		xmlns:fx="http://ns.adobe.com/mxml/2009"
+		xmlns:s="library://ns.adobe.com/flex/spark"	
+		actionBarVisible="false" overlayControls="false"
+		viewActivate="{ viewActivate(); }" viewDeactivate="{ viewDeactivate(); }">
+	
+	
+	<s:states>
+		<s:State name="AlertBox"/>
+		<s:State name="Controls"/>
+	</s:states>
+	
+	<fx:Script>
+		<![CDATA[
+			import com.codealchemy.ane.admobane.AdMobEvent;
+			import com.codealchemy.ane.admobane.AdMobManager;
+			import com.codealchemy.ane.admobane.AdMobSize;
+			
+			import spark.components.View;
+			
+			// AdMob Engine
+			private var adMob:AdMobManager	= null;
+			
+			//*******************************************
+			//*
+			//*   PRIVATE Methods
+			//*
+			//*******************************************
+			
+			/**
+			 * Popup Constructor
+			 */
+			public function viewActivate():void {
+				// Debug
+				trace("Initializing Ad Manager (" + Capabilities.os + ") ...");
+				
+				// Initialize adMob Engine
+				adMob = AdMobManager.manager;
+				
+				// Check for Supported Device
+				if(!adMob.isSupported) {
+					adMob = null;
+					return;
+				}
+				
+				// Set Operation settings
+				adMob.verbose = true;
+				adMob.operationMode = AdMobManager.PROD_MODE;
+				adMob.isCDT = true;
+				
+				// Set AdMobId settings
+				if (adMob.device == AdMobManager.IOS){
+					adMob.bannersAdMobId = "ca-app-pub-0005046673289888/8363932894";
+				} else {
+					adMob.bannersAdMobId = "ca-app-pub-0005046673289888/3933733291";
+				}
+				
+				// Create The Banner
+				adMob.createBannerAbsolute(AdMobSize.BANNER, 0, 0, "Top Banner", null, true);
+				adMob.dispatcher.addEventListener(AdMobEvent.BANNER_LOADED, onBannerLoaded);
+				adMob.dispatcher.addEventListener(AdMobEvent.BANNER_FAILED_TO_LOAD, onBannerFailure);
+
+			}
+
+			/**
+			 * Show Banner when loaded
+			 */
+			protected function onBannerLoaded(e:AdMobEvent):void {
+				// It's possible to show the specific 
+				// banner who did dispatch the event
+				// e.data:String = Banner unique ID
+				// adMob.showBanner(e.data);
+				if(adMob != null) adMob.showAllBanner();
+			}
+			
+			protected function onBannerFailure(e:AdMobEvent):void {
+				// It's possible to show the specific 
+				// banner who did dispatch the event
+				// e.data:String = Banner unique ID
+				// adMob.showBanner(e.data);
+				trace("Error: " + e.data);
+			}
+			
+			/**
+			 * Popup Destructor
+			 */
+			public function viewDeactivate():void {
+				if(adMob != null) {
+					adMob.hideAllBanner();
+					adMob = null;
+				}
+			}
+		]]>
+	</fx:Script>
+	
+	<s:BorderContainer id="adContainer" cornerRadius="5" left="0" right="0" bottom="0" top="0" borderColor="0xFFFFFF" borderWeight="1" includeInLayout.Controls="false"
+					   backgroundAlpha="0.9" backgroundImage="@Embed('/assets/images/bg.png')" backgroundImageFillMode="repeat" visible.Controls="false">
+		
+		<s:layout>
+			<s:HorizontalLayout verticalAlign="middle" horizontalAlign="center"/>
+		</s:layout>
+		
+		<s:Label rotation="-90" text="ADs Loading ..." color="0xFFFFFC"/>
+	</s:BorderContainer>
+	
+</s:View>

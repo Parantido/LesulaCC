@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:ItemRenderer xmlns:fx="http://ns.adobe.com/mxml/2009" 
+				xmlns:s="library://ns.adobe.com/flex/spark"
+				dataChange="{ updateMe(); }" width="100%" height="100%"
+				autoDrawBackground="false" xmlns:components="org.techfusion.view.components.*">
+	
+	<fx:Declarations>
+		<s:Animate id="fader" duration="500" repeatBehavior="reverse" repeatCount="0" target="{mainGroup}">
+			<s:SimpleMotionPath property="alpha" valueFrom="1.0" valueTo="0.0" />
+		</s:Animate>
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			
+			// Embed not referenced Image (Usually directly called by AS3 Code
+			// -- Needed for Release Build
+			[Embed("/assets/images/members.png")]
+			private const membersImage:Class;
+			[Embed("/assets/images/call.png")]
+			private const callImage:Class;
+			
+			protected function updateMe():void {
+				if(data) {
+					var object:XML = data as XML;
+					
+					// Validate ItemRenderer Components  
+					queueName.text			= String(object.Queue);
+					queueStrategy.text		= "(" + String(object.Strategy) + ")";
+					
+					// Update Live Calls Counter
+					queueCallCounter.badgeText	= String(object.Calls);
+					
+					// Starts/Stops Effect when needed
+					if(Number(object.Calls) > 0) {
+						fader.play();
+					} else {
+						fader.stop();
+					}
+						
+					// Validate Labels
+					htime.text		= String(object.Holdtime);
+					ttime.text		= String(object.TalkTime);
+					completed.text	= String(object.Completed);
+					abandoned.text	= String(object.Abandoned);
+					
+					// Check Agents Counters
+					if(String(object.LoggedIn).length > 0 && String(object.LoggedIn).length > 0) {
+						queueAgentsCounter.badgeText = Number(object.Available) + "/" + Number(object.LoggedIn);
+						
+						if(Number(object.Available) < 2) {
+							queueAgentsCounter.setStyle("color", 0xF00000);
+							queueAgentsCounter.badgeBorderColor = 0x7E0000;
+						} else {
+							queueAgentsCounter.setStyle("color", 0x000000);
+							queueAgentsCounter.badgeBorderColor = 0x000000;
+						}
+					} else {
+						queueAgentsCounter.badgeText = "N/A";
+					}
+				}
+			}
+		]]>
+	</fx:Script>
+	
+	<s:BorderContainer width="100%" id="mainGroup" left="5" right="5" top="5" bottom="5" borderWeight="1" cornerRadius="5"
+					   skinClass="assets.skins.CustomBorderContainerSkin">
+		
+		<s:layout>
+			<s:HorizontalLayout verticalAlign="middle" horizontalAlign="center" gap="5"
+						paddingBottom="10" paddingLeft="10" paddingRight="15" paddingTop="10"/>
+		</s:layout>
+		
+		<s:VGroup id="lblGroup" width="80%" height="80" horizontalAlign="left" verticalAlign="middle">
+			
+			<s:VGroup width="100%" height="80%" horizontalAlign="left" verticalAlign="middle"
+					  paddingBottom="0" paddingLeft="5" paddingRight="5" paddingTop="0">
+				
+				<s:Label id="queueName" fontFamily="Ubuntu" fontSize="18" fontWeight="bold" text="Queue"
+						 maxDisplayedLines="1" maxWidth="{ lblGroup.width - 5 }" color="#FFFFFF"/>
+				<s:Label id="queueStrategy" fontFamily="Ubuntu" fontSize="12" fontWeight="normal" text="(strategy)"
+						 maxDisplayedLines="1" maxWidth="{ lblGroup.width - 5 }" color="#FFFFFF"/>
+				
+			</s:VGroup>
+		
+			<s:HGroup width="100%" height="20%" gap="5" horizontalAlign="left" paddingBottom="0"
+					  paddingLeft="5" paddingRight="5" paddingTop="0" verticalAlign="middle">
+				
+				<!--<s:Label fontFamily="Ubuntu" fontSize="12" fontWeight="bold" text="Ht: " color="#FFFFFF"/>-->
+				<s:Image source="@Embed('/assets/images/status/holdtime.png')"/>
+				<s:Label fontFamily="Ubuntu" fontSize="12" id="htime" color="#FFFFFF" fontWeight="bold"/>
+				<!--<s:Label fontFamily="Ubuntu" fontSize="12" fontWeight="bold" text="Tt: " color="#FFFFFF"/>-->
+				<s:Image source="@Embed('/assets/images/status/talktime.png')"/>
+				<s:Label fontFamily="Ubuntu" fontSize="12" id="ttime" color="#FFFFFF" fontWeight="bold"/>
+				<!--<s:Label fontFamily="Ubuntu" fontSize="12" fontWeight="bold" text="Cc: " color="#FFFFFF"/>-->
+				<s:Image source="@Embed('/assets/images/status/completed.png')"/>
+				<s:Label fontFamily="Ubuntu" fontSize="12" id="completed" color="#FFFFFF" fontWeight="bold"/>
+				<!--<s:Label fontFamily="Ubuntu" fontSize="12" fontWeight="bold" text="Ac: " color="#FFFFFF"/>-->
+				<s:Image source="@Embed('/assets/images/status/abbandoned.png')"/>
+				<s:Label fontFamily="Ubuntu" fontSize="12" id="abandoned" color="#FFFFFF" fontWeight="bold"/>
+			</s:HGroup>
+		</s:VGroup>
+
+		<s:Group>
+			<s:layout>
+				<s:VerticalLayout horizontalAlign="center" verticalAlign="middle"
+								  paddingBottom="2" paddingLeft="2" paddingRight="2" paddingTop="2"/>
+			</s:layout>
+			
+			<components:BadgeButton id="queueAgentsCounter" srcImage="/assets/images/members.png" baseFontSize="10"/>
+			<components:BadgeButton id="queueCallCounter"   srcImage="/assets/images/call.png"    baseFontSize="10"/>
+			
+		</s:Group>
+		
+	</s:BorderContainer>
+	
+</s:ItemRenderer>

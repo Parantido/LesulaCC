@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:ViewNavigatorApplication xmlns:fx="http://ns.adobe.com/mxml/2009"
+							xmlns:mx="library://ns.adobe.com/flex/mx"
+							xmlns:s="library://ns.adobe.com/flex/spark"
+							xmlns:view="org.techfusion.view.components.*"
+							firstView="org.techfusion.view.components.LoginView"
+							addedToStage="{ onAddedToStage(event); }" width="100%" height="100%" backgroundColor="#000000"
+							preloader="ImagePreloader" title="Lesula Contact Center" creationPolicy="all" resizeForSoftKeyboard="true"
+							applicationComplete="{ applicationInit(); }" applicationDPI="240" runtimeDPIProvider="customizedRuntimeDPIProvider">
+	
+	<fx:Declarations>
+		<!-- runtimeDPIProvider="org.techfusion.classed.SpecialCaseMapping" -->
+		<!-- Place non-visual elements (e.g., services, value objects) here 
+		resizeForSoftKeyboard="true" -->
+	</fx:Declarations>
+	
+	<fx:Style source="/assets/css/LesulaCC.css"/>
+	
+	<fx:Script>
+		<![CDATA[
+			import spark.events.PopUpEvent;
+			
+			import org.techfusion.view.components.PopupDialog;
+
+			// Instanciate Environment Facade
+			private var facade:ApplicationFacade = ApplicationFacade.getInstance();
+			
+			// Popup
+			private var popDialog:PopupDialog = null;
+			
+			/**
+			 * Initilize Main Application Window/Behavior
+			 */
+			private function applicationInit():void {
+				// Startup MVC
+				facade.startup(this);
+				
+				// Keep Application Awake
+				NativeApplication.nativeApplication.systemIdleMode = SystemIdleMode.KEEP_AWAKE;
+				
+				// Register Needed Handler
+				NativeApplication.nativeApplication.addEventListener(KeyboardEvent.KEY_DOWN, keysEventHandler);
+				NativeApplication.nativeApplication.addEventListener(Event.EXITING,    applicationExitHandle);
+				NativeApplication.nativeApplication.addEventListener(Event.ACTIVATE,   applicationActivationHandle);
+				NativeApplication.nativeApplication.addEventListener(Event.DEACTIVATE, applicationDeactivationHandle);
+			}
+			
+			/**
+			 * Handle Hardware/Software Keyboard Events
+			 */
+			protected function keysEventHandler(event:KeyboardEvent):void {
+				if(event.keyCode == Keyboard.BACK) {
+					// Prevent Default Event 
+					event.preventDefault();
+					
+					// Check if popup already opened
+					if(popDialog != null)
+						popDialog.close();
+						
+					// Ask for Exit
+					popDialog = new PopupDialog();
+					// popDialog.message = "Are you sure you want to exit?";
+					popDialog.addEventListener(PopUpEvent.CLOSE, onAlertClose, false, 0, true);
+					popDialog.open(this, true);
+					
+					// Should Center Popup -- it doesnt always works
+					popDialog.x = (stage.stageWidth  - popDialog.width)  / 2;
+					popDialog.y = (stage.stageHeight - popDialog.height) / 2;
+					
+					// Debug
+					trace("LesulaCC ==> Popup placed at: " + popDialog.x + ":" + popDialog.y + " Popup Size: " + popDialog.width + "x" + popDialog.height);
+				}
+			}
+			
+			/**
+			 * Handle Popup
+			 */
+			private function onAlertClose(e:PopUpEvent):void {
+				if(Boolean(e.commit)) {
+					trace("LesulaCC ==> Exiting Application!!!");
+					NativeApplication.nativeApplication.exit();
+				}
+				
+				// Un/Reregister Needed Handler
+				NativeApplication.nativeApplication.removeEventListener(KeyboardEvent.KEY_DOWN, keysEventHandler);
+				NativeApplication.nativeApplication.addEventListener(KeyboardEvent.KEY_DOWN, keysEventHandler);
+				
+				// Garbage Collect
+				popDialog = null;
+			}
+			
+			/**
+			 * Prevent Orientation Change
+			 */
+			protected function onAddedToStage(event:Event):void {
+				// Setup Stage
+				stage.align = StageAlign.TOP_LEFT;
+				stage.scaleMode = StageScaleMode.NO_SCALE;
+				
+				// Get Starting Orientation
+				var startOrientation:String = stage.orientation;
+
+				// Debug
+				trace("LesulaCC ==> Orientation start: " + startOrientation);
+				trace("LesulaCC ==> Device Size: " + stage.stageWidth + "x" + stage.stageHeight + " DPI: " + Capabilities.screenDPI);
+				
+				// Redispose Orientation
+				if (startOrientation == StageOrientation.DEFAULT || startOrientation == StageOrientation.UPSIDE_DOWN) {
+					stage.setOrientation(StageOrientation.ROTATED_RIGHT);
+				} else {
+					stage.setOrientation(startOrientation);
+				}
+				
+				// Lock Orientation
+				stage.autoOrients = false;
+				stage.setAspectRatio(StageAspectRatio.LANDSCAPE);
+				
+				// Handle Orientation Change Events
+				stage.addEventListener(StageOrientationEvent.ORIENTATION_CHANGING, orientationChangeListener);
+			}
+			
+			/**
+			 * Handle Orientation Change Events
+			 */
+			protected function orientationChangeListener(e:StageOrientationEvent):void {
+				trace("LesulaCC ==> Orientation change: " + e.afterOrientation);
+				if (e.afterOrientation == StageOrientation.DEFAULT || e.afterOrientation ==  StageOrientation.UPSIDE_DOWN) {
+					e.preventDefault();
+					stage.setOrientation(StageOrientation.DEFAULT);
+					stage.setAspectRatio(StageAspectRatio.LANDSCAPE);
+				}
+			}
+			
+			protected function applicationExitHandle(event:Event):void {
+				applicationPurge();
+			}
+			
+			protected function applicationActivationHandle(event:Event):void {
+				applicationPurge();
+			}
+			
+			protected function applicationDeactivationHandle(event:Event):void {
+				applicationPurge();
+			}
+			
+			/**
+			 * Purge all and return to the first view
+			 */
+			protected function applicationPurge():void {
+				// dispatchEvent(new Event(ApplicationFacade.DISCONNECT));
+			}
+			
+		]]>
+	</fx:Script>
+	
+</s:ViewNavigatorApplication>

@@ -1,0 +1,115 @@
+package org.techfusion.view.mediators {
+	
+	import flash.display.DisplayObject;
+	
+	import org.puremvc.as3.interfaces.IMediator;
+	import org.puremvc.as3.interfaces.INotification;
+	import org.puremvc.as3.patterns.mediator.Mediator;
+	import org.techfusion.events.GenericViewEvent;
+	import org.techfusion.view.components.MainView;
+	import org.tylerchesley.bark.core.Notification;
+	import org.tylerchesley.bark.events.NotificationEvent;
+	import org.tylerchesley.bark.managers.NotificationManager;
+	
+	public class GrowlNotificationMediator extends Mediator implements IMediator {
+		
+		public static const NAME:String = "GrowlNotificationMediator";
+		
+		[Embed(source="/assets/images/growl/success.png")]
+		[Bindable]
+		public var iconSuccess:Class;
+		
+		[Embed(source="/assets/images/growl/fail.png")]
+		[Bindable]
+		public var iconFail:Class;
+		
+		[Embed(source="/assets/images/growl/warning.png")]
+		[Bindable]
+		public var iconWarning:Class;
+		
+		[Embed(source="/assets/images/growl/data.png")]
+		[Bindable]
+		public var iconData:Class;
+		
+		[Embed(source="/assets/images/growl/bomb.png")]
+		[Bindable]
+		public var iconBomb:Class;
+		
+		// Last Message Time -- to Avoid Flood
+		private var lastMsgTime:Number	= 0;
+		
+		public function GrowlNotificationMediator(viewComponent:Object = null) {
+			super(NAME, viewComponent);
+			
+			if(!NotificationManager.getInstance()) {
+				NotificationManager.initialize(viewComponent as DisplayObject);
+			}
+		}
+		
+		public function get mainview():MainView {
+			return viewComponent as MainView;
+		}
+		
+		override public function listNotificationInterests() : Array {
+			return [
+				ApplicationFacade.INFO_MESSAGE,
+				ApplicationFacade.INFO_MESSAGE_OK,
+				ApplicationFacade.INFO_MESSAGE_KO,
+				ApplicationFacade.INFO_MESSAGE_FLT
+			];
+		}
+		
+		override public function handleNotification(notification:INotification):void {
+			// Message
+			var message:String = GenericViewEvent(notification.getBody()).getData() as String;
+			
+			// Debug
+			trace(NAME + " ==> Notification incoming: " + notification.getName() + ' (' + message + ")");
+			
+			// Check for messaging flood
+			// -- Wait 3 seconds before
+			// -- another notification
+			var date:Date = new Date();
+			if((date.time - lastMsgTime) <= 3) {
+				return;
+			} else {
+				lastMsgTime = date.time;
+			}
+			
+			// Handle Message Type
+			switch (notification.getName()) {
+				case ApplicationFacade.INFO_MESSAGE:
+					notify("default", "Info", message, iconData, 2500);
+					break;
+				
+				case ApplicationFacade.INFO_MESSAGE_OK:
+					notify("default", "Success", message, iconSuccess, 2500);
+					break;
+				
+				case ApplicationFacade.INFO_MESSAGE_KO:
+					notify("default", "Warning", message, iconWarning, 2500);
+					break;
+				
+				case ApplicationFacade.INFO_MESSAGE_FLT:
+					notify("default", "Failure", message, iconFail, 2500);
+					break;
+			}
+		}
+		
+		protected function notify (type:String = 'default', title:String = '', description:String = '', 
+								   icon:Object = null, duration:Number = 5000):void {
+			var notification:Notification = new Notification(type, duration, title, description, icon);
+			if (mainview) mainview.dispatchEvent(new NotificationEvent(NotificationEvent.NOTIFY, notification));
+		}
+		
+		// Facade onRegister Mediators Events
+		override public function onRegister():void {
+			trace("GrowlNotificationMediator ==> Registering Mediator");
+		}
+		
+		// Facade onRemove Mediators Events
+		override public function onRemove():void {
+			trace("GrowlNotificationMediator ==> Removing Mediator");
+		}
+	}
+}

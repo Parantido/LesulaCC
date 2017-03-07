@@ -1,0 +1,31 @@
+package org.virtualkeyboard.events {
+	
+    import flash.events.Event;
+    
+    public class VirtualKeyboardEvent extends Event {
+		
+        private var _keyLabel:String;
+		
+		public static const KEY_CLICKED:String = "KeyPressed";
+        
+        public function VirtualKeyboardEvent(type:String, data:String=null) {
+			// Super Received Values
+			super(type, true, cancelable);
+			
+			// Retrieve Event
+			this._keyLabel = data;
+        }
+        
+		public function get keyPressed():String {
+			return _keyLabel;
+		}
+		
+		public function set keyPressed(key:String):void {
+			this._keyLabel = key;
+		}
+		
+		public override function clone():Event {
+			return new VirtualKeyboardEvent(type, _keyLabel);
+		}
+    }
+}
